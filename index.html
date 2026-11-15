@@ -567,7 +567,7 @@ function render(){
   renderHero();
   const v={acao:viewAcao,carteira:viewCarteira,recup:viewRecup,cadpes:viewCadPes,plr:viewPlr,aprov:viewAprov,gestao:viewGestao}[S.tab];
   $('main').innerHTML = v();
-  ({carteira:afterCarteira,cadpes:afterCadPes,acao:afterAcao}[S.tab]||(()=>{}))();
+  ({carteira:afterCarteira,cadpes:afterCadPes,acao:afterAcao,plr:afterPlr}[S.tab]||(()=>{}))();
 }
 /* fotos: as do Painel Time vêm embutidas; a gestão pode trocar/incluir (tabela fotos_executivos) */
 function fotoDe(n){ return n && ((S.fotos||{})[n] || FOTOS_PADRAO[n]) || null; }
@@ -999,12 +999,14 @@ async function extMetasPesq(){
   extClients.pesquisa ||= supabase.createClient(c.supabaseUrl,c.key,{auth:{persistSession:false,storageKey:'ext-pesquisa'}});
   const {data,error}=c.rpcMetas?await extClients.pesquisa.rpc(c.rpcMetas):await extClients.pesquisa.from(c.tabelaMetas).select('*'); if(error) throw error; return data||[];
 }
+const IND_MENSAL=['arrecadacao','consumo'];
 function pesqResumo(rows,metaQtd){
   const env=rows.reduce((s,r)=>s+qtdMat(r),0), resp=rows.filter(r=>r.status!=='pendente').reduce((s,r)=>s+qtdMat(r),0);
   const val=rows.filter(r=>r.status==='validado'), comNota=val.filter(r=>r.nota_atendimento!=null);
   const valNota=comNota.reduce((s,r)=>s+qtdMat(r),0), imp=val.filter(r=>r.tipo===TIPO_IMPOSS).reduce((s,r)=>s+qtdMat(r),0);
   const metaAj=metaQtd!=null?Math.max(0,metaQtd-imp):null, nota=comNota.length?comNota.reduce((s,r)=>s+(+r.nota_atendimento),0)/comNota.length:null;
-  return {env,resp,valNota,imp,metaAj,nota,aguard:rows.filter(r=>r.status==='aguardando_validacao').reduce((s,r)=>s+qtdMat(r),0)};
+  const total=valNota+imp, falta=metaQtd!=null?Math.max(0,metaQtd-total):null, pctM=metaQtd?total/metaQtd:null;
+  return {env,resp,valNota,imp,total,falta,pctM,meta:metaQtd,metaAj,nota,aguard:rows.filter(r=>r.status==='aguardando_validacao').reduce((s,r)=>s+qtdMat(r),0)};
 }
 const ST_CAD={pendente_tratamento:'Pendente',aguardando_execucao_os:'Aguard. OS',aguardando_validacao_justificativa:'Aguard. validação',cadastro_atualizado:'Atualizado',
   aguardando_execucao:'Aguard. execução',executada:'Executada',nao_executada:'Não executada',aguardando_validacao:'Aguard. validação',pendente:'Pendente',validado:'Validado',rejeitado:'Rejeitado',aprovada:'Aprovada',reprovada:'Reprovada',rejeitada:'Rejeitada'};
@@ -1036,9 +1038,9 @@ async function afterCadPes(){
       } else {
         const rows=await extFetch(k)||[];
         const meta = e ? META_PESQUISA_EXEC : META_PESQUISA_TIME;
-        const R=pesqResumo(rows,meta), p=R.metaAj?R.valNota/R.metaAj:0;
+        const R=pesqResumo(rows,meta), p=R.pctM||0;
         html=`<div class="kpis cadpes-k">
-          <div class="k ${p>=1?'c3':'c2'}"><div class="l">Meta de pesquisas (${int(meta)})</div><div class="v">${pct(p,0)}</div><div class="s">${int(R.valNota)} validadas com nota de ${int(R.metaAj)}${R.imp?` · meta ajustada (−${int(R.imp)} impossibilidades)`:''} · faltam ${int(Math.max(0,R.metaAj-R.valNota))}</div>${barra(R.valNota,R.metaAj,p>=1?'var(--leaf)':'var(--water)')}</div>
+          <div class="k ${p>=1?'c3':'c2'}"><div class="l">Meta de pesquisas (${int(meta)})</div><div class="v">${pct(p,0)}</div><div class="s">${int(R.valNota)} validadas + ${int(R.imp)} não respondidas = ${int(R.total)} · faltam ${int(R.falta)}</div>${barra(R.total,meta,p>=1?'var(--leaf)':'var(--water)')}</div>
           <div class="k c2"><div class="l">Enviadas / respondidas</div><div class="v">${int(R.env)}</div><div class="s">${int(R.resp)} respondidas · ${int(R.aguard)} aguard. validação</div></div>
           <div class="k c5"><div class="l">Nota média</div><div class="v">${R.nota!=null?nf(R.nota,1)+' ★':'—'}</div><div class="s">das pesquisas validadas</div></div></div>`;
       }
@@ -1091,20 +1093,23 @@ function viewPlr(){
   let tb;
   if(e){
     tb=`<div class="scroll"><table class="plr-tb"><thead><tr><th>Indicador</th>${ms.map(m=>`<th style="text-align:center">${compLbl(m)}</th>`).join('')}<th class="r">Atingidas</th></tr></thead><tbody>
-      ${Object.entries(IND).map(([k,v])=>{ const st=ms.map(m=>plrSt(e,m,k).st), ok=st.filter(s=>s==='ok'||s==='ju').length, n=st.filter(s=>s!=='na').length;
+      ${Object.entries(IND).filter(([k])=>IND_MENSAL.includes(k)).map(([k,v])=>{ const st=ms.map(m=>plrSt(e,m,k).st), ok=st.filter(s=>s==='ok'||s==='ju').length, n=st.filter(s=>s!=='na').length;
         return `<tr><td><b>${v.nome}</b><br><span class="mat">${fonteInd(k)}</span></td>${ms.map(m=>`<td class="c">${plrCell(e,m,k)}</td>`).join('')}<td class="r"><b>${n?`${ok}/${n}`:'—'}</b></td></tr>`;}).join('')}
       </tbody></table></div>`;
   } else {
+    if(!IND_MENSAL.includes(S.plrInd)) S.plrInd='arrecadacao';
     const ex=execList().filter(x=>!['Carteira Público','Judicial'].includes(x)), i=S.plrInd;
-    tb=`<div class="chips" style="margin-bottom:12px">${Object.entries(IND).map(([k,v])=>`<button class="chip ${i===k?'on':''}" onclick="S.plrInd='${k}';render()">${v.nome}</button>`).join('')}</div>
+    tb=`<div class="chips" style="margin-bottom:12px">${Object.entries(IND).filter(([k])=>IND_MENSAL.includes(k)).map(([k,v])=>`<button class="chip ${i===k?'on':''}" onclick="S.plrInd='${k}';render()">${v.nome}</button>`).join('')}</div>
       <div class="scroll"><table class="plr-tb"><thead><tr><th>Executivo</th>${ms.map(m=>`<th style="text-align:center">${compLbl(m)}</th>`).join('')}<th class="r">Atingidas</th></tr></thead><tbody>
       ${ex.map(x=>{ const st=ms.map(m=>plrSt(x,m,i).st), ok=st.filter(s=>s==='ok'||s==='ju').length, n=st.filter(s=>s!=='na').length;
         return `<tr><td><button class="link pessoa" onclick="setVer('${esc(x)}')">${av(x,28)}<span>${esc(x)}</span></button></td>${ms.map(m=>`<td class="c">${plrCell(x,m,i)}</td>`).join('')}<td class="r"><b>${n?`${ok}/${n}`:'—'}</b></td></tr>`;}).join('')}
       </tbody></table></div><p class="note mat" style="margin-top:8px">Fonte: ${fonteInd(i)}. ${S.gestao?'Clique numa célula para ajustar realizado/meta.':''}</p>`;
   }
   const J=doExec(S.just);
-  return `<div class="sec-h"><div><h2>Acompanhamento das Metas PLR</h2><p>Cadastral · Pesquisa · Arrecadação · Consumo estratégico</p></div>
+  return `<div class="sec-h"><div><h2>Acompanhamento das Metas PLR</h2><p>Atualização Cadastral · Pesquisa de Satisfação · Arrecadação · Consumo Estratégico</p></div>
     <div class="acts"><select class="sel" onchange="S.plrAno=+this.value;render()">${anos.map(a=>`<option ${a===S.plrAno?'selected':''}>${a}</option>`).join('')}</select></div></div>
+  <div id="plrAcum"><div class="card"><div class="loading"><div class="spin"></div>Buscando Atualização Cadastral e Pesquisa…</div></div></div>
+  <div class="card" style="padding-bottom:16px"><h2>Metas mensais</h2><p class="sub">Arrecadação e Consumo Estratégico, mês a mês</p></div>
   ${legend}${tb}
   ${e?consumoExecHTML(e):(S.plrInd==='consumo'?consumoTimeHTML():'')}
   <div class="sec-h" style="margin-top:22px"><div><h2 style="font-size:18px">Justificativas de não atingimento</h2><p>Validadas e aprovadas por Tayene ou Day</p></div></div>
@@ -1259,6 +1264,67 @@ function consumoTimeHTML(){
   <div class="card"><h3>Aprovação no ano por executivo</h3><div class="scroll"><table><thead><tr><th>Executivo</th><th class="r">Aprovados</th><th class="r">Justificados</th><th class="r">Meses que contam</th><th class="r">% aprovação</th><th>Elegibilidade PLR</th></tr></thead><tbody>
     ${execs.sort().map(x=>{ const el=consElegib(x); return `<tr><td><button class="link pessoa" onclick="setVer('${esc(x)}')">${av(x,28)}<span>${esc(x)}</span></button></td><td class="r">${el.ok}</td><td class="r">${el.ju}</td><td class="r">${el.base}</td><td class="r"><b>${pct(el.pctA,0)}</b></td><td>${el.eleg?'<span class="pill st-3">Elegível</span>':'<span class="pill st-4">Não elegível</span>'}</td></tr>`; }).join('')}
   </tbody></table></div></div>`;
+}
+</script>
+
+<script>
+/* =====================================================================
+   PLR · Atualização Cadastral e Pesquisa (metas acumuladas)
+   ===================================================================== */
+S.extCache={};
+async function extDados(){
+  const e=execFoco(), key=e||'*', c=S.extCache[key];
+  if(c && Date.now()-c.t<5*60*1000) return c;
+  const out={t:Date.now(),cart:null,pesq:null,erroCart:null,erroPesq:null};
+  await Promise.all([
+    (async()=>{ try{ if(extOk('cadastral')) out.cart=await extCarteira('cadastral'); }catch(err){ out.erroCart=err.message; } })(),
+    (async()=>{ try{ if(extOk('pesquisa')) out.pesq=await extFetch('pesquisa'); }catch(err){ out.erroPesq=err.message; } })()
+  ]);
+  S.extCache[key]=out; return out;
+}
+function cadResumo(rows){
+  const n=rows.length, c=s=>rows.filter(r=>r.status_fluxo===s).length, at=c('cadastro_atualizado');
+  return {n,at,pend:c('pendente_tratamento'),os:c('aguardando_execucao_os'),ju:c('aguardando_validacao_justificativa'),p:n?at/n:null};
+}
+function semaforo(p){ return p==null?'var(--text-faint)':p>=1?'var(--leaf)':p>=.7?'var(--amber)':'var(--rose)'; }
+function kpi(l,v,s,cls){ return `<div class="k ${cls||''}"><div class="l">${l}</div><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`; }
+function blocoCad(R,titulo){
+  return `<div class="card"><h2>${titulo}</h2><p class="sub">Meta: atualizar 100% da carteira</p>
+    <div class="kpis">${kpi('Total da carteira',int(R.n),'','')}${kpi('Atualizadas',int(R.at),'','c3')}${kpi('Pendentes',int(R.pend),'','c5')}
+      ${kpi('Aguard. execução OS',int(R.os),'','c2')}${kpi('Justificativas pendentes',int(R.ju),'','c2')}${kpi('% concluído',R.p!=null?pct(R.p,1):'—',`faltam ${int(R.n-R.at)}`,R.p>=1?'c3':'c4')}</div>
+    ${barra(R.at,R.n,semaforo(R.p))}</div>`;
+}
+function blocoPesq(R,titulo,sub){
+  return `<div class="card"><h2>${titulo}</h2><p class="sub">${sub}</p>
+    <div class="kpis">${kpi('Meta',int(R.meta),'','')}${kpi('Validados (sem somar)',int(R.valNota),'com nota','c3')}${kpi('Não respondidas',int(R.imp),'validadas como impossibilidade','c4')}
+      ${kpi('Validados + não respondidas',int(R.total),'','c3')}${kpi('Falta',int(R.falta),'',R.falta?'c5':'c3')}${kpi('% da meta',pct(R.pctM,1),`nota média ${R.nota!=null?nf(R.nota,1)+' ★':'—'}`,R.pctM>=1?'c3':'c2')}</div>
+    ${barra(R.total,R.meta,semaforo(R.pctM))}</div>`;
+}
+async function afterPlr(){
+  const box=$('plrAcum'); if(!box) return;
+  const D=await extDados(); if(S.tab!=='plr'||!$('plrAcum')) return;
+  const e=execFoco(); let h='';
+  const erro=(nome,m)=>`<div class="card"><h2>${nome}</h2><div class="msg err" style="margin-top:10px">Não foi possível ler: ${esc(m)}${/cv_|function|permission|schema/i.test(m)&&S.gestao?' — rode o arquivo 5 no Supabase da Atualização Cadastral.':''}</div></div>`;
+  if(e){
+    h+= D.cart? blocoCad(cadResumo(D.cart),'Atualização Cadastral · '+esc(first(e))) : (D.erroCart?erro('Atualização Cadastral',D.erroCart):'');
+    h+= D.pesq? blocoPesq(pesqResumo(D.pesq,META_PESQUISA_EXEC),'Pesquisa de Satisfação · '+esc(first(e)),`Meta individual de ${META_PESQUISA_EXEC} pesquisas (validadas + não respondidas)`) : (D.erroPesq?erro('Pesquisa de Satisfação',D.erroPesq):'');
+  } else {
+    if(D.cart) h+=blocoCad(cadResumo(D.cart),'Atualização Cadastral · time'); else if(D.erroCart) h+=erro('Atualização Cadastral',D.erroCart);
+    if(D.pesq) h+=blocoPesq(pesqResumo(D.pesq,META_PESQUISA_TIME),'Pesquisa de Satisfação · time',`Meta consolidada do time: ${nf(META_PESQUISA_TIME)} pesquisas · individual ${META_PESQUISA_EXEC}`); else if(D.erroPesq) h+=erro('Pesquisa de Satisfação',D.erroPesq);
+    // tabela por executivo
+    const nomes=new Set(); (D.cart||[]).forEach(r=>r.executivo&&nomes.add(r.executivo)); (D.pesq||[]).forEach(r=>r.analista&&nomes.add(r.analista));
+    const linhas=[...nomes].sort((a,b)=>a.localeCompare(b,'pt')).map(x=>({x,c:cadResumo((D.cart||[]).filter(r=>r.executivo===x)),q:pesqResumo((D.pesq||[]).filter(r=>r.analista===x),META_PESQUISA_EXEC)}));
+    if(linhas.length) h+=`<div class="card"><h2>Por executivo</h2><p class="sub">Clique no nome para ver a visão individual</p><div class="scroll" style="margin-top:12px"><table><thead><tr><th>Executivo</th>
+      <th class="r">Carteira</th><th class="r">Atualizadas</th><th class="r">Pendentes</th><th style="min-width:150px">% atualizada</th>
+      <th class="r">Validadas</th><th class="r">Não resp.</th><th class="r">Total / ${META_PESQUISA_EXEC}</th><th class="r">Falta</th><th style="min-width:150px">% pesquisa</th></tr></thead><tbody>
+      ${linhas.map(({x,c,q})=>`<tr><td><button class="link pessoa" onclick="setVer('${esc(x)}')">${av(x,28)}<span>${esc(x)}</span></button></td>
+        <td class="r">${int(c.n)}</td><td class="r">${int(c.at)}</td><td class="r">${int(c.pend)}</td>
+        <td><b style="color:${semaforo(c.p)}">${c.p!=null?pct(c.p,1):'—'}</b>${c.n?barra(c.at,c.n,semaforo(c.p)):''}</td>
+        <td class="r">${int(q.valNota)}</td><td class="r">${int(q.imp)}</td><td class="r"><b>${int(q.total)}</b></td><td class="r">${int(q.falta)}</td>
+        <td><b style="color:${semaforo(q.pctM)}">${pct(q.pctM,0)}</b>${barra(q.total,q.meta,semaforo(q.pctM))}</td></tr>`).join('')}
+      </tbody></table></div></div>`;
+  }
+  box.innerHTML=h||'';
 }
 </script>
 <script>
