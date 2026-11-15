@@ -264,16 +264,18 @@
   <div class="login-card">
     <div class="eyebrow"><span class="dot"></span>Águas do Rio · Grandes Clientes</div>
     <h1>Carteira Viva</h1>
-    <p class="sub" id="lsub">Entre com seu e-mail e senha de acesso.<br>Ex.: diogo.garcia@gestaocarteira.local</p>
+    <p class="sub" id="lsub">Entre com seu e-mail e senha de acesso.</p>
     <div id="lmsg"></div>
     <form id="lform" onsubmit="return doLogin(event)">
+      <div class="fld hidden" id="lexecW"><label>Seu nome</label><select id="lexec" onchange="sugEmail()"></select>
+        <span class="help">Só aparecem executivos que ainda não criaram acesso.</span></div>
       <div class="fld"><label>E-mail</label><input id="lemail" type="email" autocomplete="username" placeholder="nome.sobrenome@gestaocarteira.local" required></div>
       <div class="fld"><label id="lpassLbl">Senha</label><input id="lpass" type="password" autocomplete="current-password" placeholder="Sua senha" required minlength="6"></div>
       <div class="fld hidden" id="lpass2W"><label>Confirme a senha</label><input id="lpass2" type="password" autocomplete="new-password" minlength="6"></div>
       <button class="btn full" id="lbtn" type="submit">Entrar</button>
     </form>
-    <div style="display:flex;justify-content:space-between;margin-top:14px">
-      <span class="mat">Primeiro acesso: use a senha inicial que a gestão passou.</span>
+    <div style="display:flex;justify-content:space-between;margin-top:14px;gap:10px">
+      <button class="link" id="ltoggle" onclick="toggleSignup()">Primeiro acesso? Criar minha conta</button>
       <button class="link" onclick="forgot()">Esqueci a senha</button>
     </div>
   </div>
@@ -345,7 +347,7 @@ const IND = {
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const S = {
   user:null, me:null, gestao:false, validaPlr:false, ver:'', tab:'acao',
-  acao:[], recup:[], just:[], plr:[], usuarios:[], cargas:[], carteiraBase:null,
+  acao:[], recup:[], just:[], plr:[], consumo:[], usuarios:[], cargas:[], carteiraBase:null,
   cart:{comp:null, fat:[], arr:[], con:[], loaded:null},
   f:{q:'', origem:'', sit:'', status:''}, cf:{q:'', st:'', lim:60}, rtab:'minhas', plrInd:'arrecadacao', plrAno:new Date().getFullYear(),
   ext:{}, loaded:false
@@ -389,13 +391,25 @@ async function fetchAll(q){
    LOGIN
    ===================================================================== */
 let signup=false;
-function toggleSignup(){
+async function toggleSignup(){
   signup=!signup;
-  $('lpass2W').classList.toggle('hidden',!signup);
-  $('lbtn').textContent = signup?'Criar senha e entrar':'Entrar';
-  $('ltoggle').textContent = signup?'Já tenho senha':'Primeiro acesso? Criar senha';
+  ['lpass2W','lexecW'].forEach(id=>$(id).classList.toggle('hidden',!signup));
+  $('lbtn').textContent = signup?'Criar conta e entrar':'Entrar';
+  $('ltoggle').textContent = signup?'Já tenho conta':'Primeiro acesso? Criar minha conta';
   $('lpassLbl').textContent = signup?'Crie uma senha (mín. 6 caracteres)':'Senha';
-  $('lmsg').innerHTML = signup?'<div class="msg info">Use o e-mail cadastrado pela gestão.</div>':'';
+  $('lsub').textContent = signup?'Escolha seu nome, confirme o e-mail e crie sua senha.':'Entre com seu e-mail e senha de acesso.';
+  $('lmsg').innerHTML='';
+  if(signup){
+    $('lexec').innerHTML='<option value="">Carregando…</option>';
+    const {data,error}=await sb.rpc('fn_execs_sem_acesso');
+    if(error){ $('lmsg').innerHTML=`<div class="msg err">${esc(error.message)}</div>`; return; }
+    $('lexec').innerHTML='<option value="">Selecione seu nome</option>'+(data||[]).map(n=>`<option>${esc(n)}</option>`).join('');
+    if(!(data||[]).length) $('lmsg').innerHTML='<div class="msg info">Todos os executivos já criaram acesso. Se o seu nome não aparece, fale com a gestão.</div>';
+  }
+}
+function sugEmail(){
+  const n=$('lexec').value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().split(/\s+/).filter(Boolean);
+  if(n.length) $('lemail').value=(n.length>1?n[0]+'.'+n[n.length-1]:n[0]).toLowerCase().replace(/[^a-z.]/g,'')+'@gestaocarteira.local';
 }
 async function doLogin(ev){
   ev.preventDefault();
@@ -403,10 +417,15 @@ async function doLogin(ev){
   const box=$('lmsg'); box.innerHTML=''; $('lbtn').disabled=true;
   try{
     if(signup){
+      const exec=$('lexec').value;
+      if(!exec) throw new Error('Selecione seu nome.');
       if(pass!==$('lpass2').value) throw new Error('As senhas não conferem.');
-      const {data,error}=await sb.auth.signUp({email,password:pass});
+      const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{executivo:exec}}});
       if(error) throw error;
-      if(!data.session){ box.innerHTML='<div class="msg ok">Conta criada! Confirme pelo link enviado ao seu e-mail e depois entre.</div>'; toggleSignup(); return false; }
+      if(!data.session){
+        const r=await sb.auth.signInWithPassword({email,password:pass});
+        if(r.error){ box.innerHTML='<div class="msg ok">Conta criada! A confirmação de e-mail está ligada no Supabase — peça para a gestão desligar "Confirm email".</div>'; toggleSignup(); return false; }
+      }
     } else {
       const {error}=await sb.auth.signInWithPassword({email,password:pass});
       if(error) throw error;
@@ -415,13 +434,14 @@ async function doLogin(ev){
   }catch(e){
     let m=e.message||String(e);
     if(/Invalid login/i.test(m)) m='E-mail ou senha incorretos.';
-    if(/Database error|não está autorizado/i.test(m)) m='Este e-mail não está cadastrado na Carteira Viva. Fale com a gestão (Tayene ou Day).';
+    if(/already registered/i.test(m)) m='Este e-mail já tem conta. Use "Já tenho conta" para entrar.';
+    if(/Database error|não está autorizado|já tem acesso/i.test(m)) m='Não foi possível criar a conta: esse executivo já tem acesso ou o e-mail não está autorizado. Fale com a gestão (Day ou Tayene).';
     box.innerHTML=`<div class="msg err">${esc(m)}</div>`;
   } finally { $('lbtn').disabled=false; }
   return false;
 }
 function forgot(){
-  $('lmsg').innerHTML='<div class="msg info">Peça para a gestão (Day ou Tayene) redefinir sua senha em Gestão › Usuários. Você recebe uma senha provisória e troca no próximo acesso.</div>';
+  $('lmsg').innerHTML='<div class="msg info">Peça para a gestão (Day ou Tayene) redefinir sua senha. Você recebe a senha provisória Carteira@2026 e troca no próximo acesso.</div>';
 }
 function openTrocaSenha(obrig){
   modal(`<div class="modal sm"><div class="mh"><div><h3>${obrig?'Crie sua senha':'Trocar senha'}</h3><p>${obrig?'Primeiro acesso: troque a senha provisória por uma só sua.':'Escolha uma nova senha (mín. 6 caracteres).'}</p></div>${obrig?'':'<button class="x" onclick="closeModal()">×</button>'}</div>
@@ -470,14 +490,15 @@ async function start(){
   if(S.trocarSenha) openTrocaSenha(true);
 }
 async function loadAll(){
-  const [acao,recup,just,plr,cargas]=await Promise.all([
+  const [acao,recup,just,plr,cargas,consumo]=await Promise.all([
     fetchAll(()=>sb.from('acao_base').select('*').order('saldo_vencido',{ascending:false,nullsFirst:false})),
     fetchAll(()=>sb.from('recuperacoes').select('*').order('criado_em',{ascending:false})),
     fetchAll(()=>sb.from('plr_justificativas').select('*').order('enviado_em',{ascending:false})),
     fetchAll(()=>sb.from('plr_resultados').select('*')),
-    fetchAll(()=>sb.from('cargas').select('*').order('enviado_em',{ascending:false}))
+    fetchAll(()=>sb.from('cargas').select('*').order('enviado_em',{ascending:false})),
+    fetchAll(()=>sb.from('plr_consumo').select('*').order('competencia'))
   ]);
-  Object.assign(S,{acao,recup,just,plr,cargas});
+  Object.assign(S,{acao,recup,just,plr,cargas,consumo});
   if(S.gestao) S.usuarios=await fetchAll(()=>sb.from('usuarios').select('*').order('papel').order('nome'));
   S.loaded=true;
 }
@@ -486,6 +507,7 @@ async function reload(part){
   else if(part==='recup') S.recup=await fetchAll(()=>sb.from('recuperacoes').select('*').order('criado_em',{ascending:false}));
   else if(part==='just') S.just=await fetchAll(()=>sb.from('plr_justificativas').select('*').order('enviado_em',{ascending:false}));
   else if(part==='plr') S.plr=await fetchAll(()=>sb.from('plr_resultados').select('*'));
+  else if(part==='consumo') S.consumo=await fetchAll(()=>sb.from('plr_consumo').select('*').order('competencia'));
   else if(part==='cargas') S.cargas=await fetchAll(()=>sb.from('cargas').select('*').order('enviado_em',{ascending:false}));
   else if(part==='usuarios') S.usuarios=await fetchAll(()=>sb.from('usuarios').select('*').order('papel').order('nome'));
 }
@@ -681,14 +703,16 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !S.trocarSenha) 
 /* =====================================================================
    ACOMPANHAMENTO DE CARTEIRA
    ===================================================================== */
-function compsDisponiveis(){ return [...new Set(S.cargas.filter(c=>c.tipo==='carteira_mensal').map(c=>c.competencia))].sort().reverse(); }
+function compsDisponiveis(){ return [...new Set(S.cargas.filter(c=>c.tipo==='procx'||c.tipo==='carteira_mensal').map(c=>c.competencia))].sort().reverse(); }
 async function loadCarteira(){
   const comps=compsDisponiveis(); if(!S.cart.comp) S.cart.comp=comps[0]||null;
   const key=S.cart.comp+'|'+execFoco(); if(!S.cart.comp||S.cart.loaded===key) return;
   const c=S.cart.comp, e=execFoco();
   const q=t=>()=>{ let x=sb.from(t).select('*').eq('competencia',c).order('id'); if(e) x=x.eq('executivo',e); return x; };
+  const qh=()=>{ let x=sb.from('carteira_hist').select('matricula,cliente,executivo,curva,carteira,utilizacao,sit_ligacao,bairro').eq('competencia',c).order('matricula'); if(e) x=x.eq('executivo',e); return x; };
   const qb=()=>{ let x=sb.from('carteira_base').select('matricula,cliente,executivo,curva,carteira,utilizacao,sit_ligacao,bairro').order('matricula'); if(e) x=x.eq('executivo',e); return x; };
-  const [fat,arr,con,base]=await Promise.all([fetchAll(q('cart_faturamento')),fetchAll(q('cart_arrecadacao')),fetchAll(q('cart_consumo')),fetchAll(qb)]);
+  let [fat,arr,con,base]=await Promise.all([fetchAll(q('cart_faturamento')),fetchAll(q('cart_arrecadacao')),fetchAll(q('cart_consumo')),fetchAll(qh)]);
+  if(!base.length) base=await fetchAll(qb);
   S.cart.fat=fat; S.cart.arr=arr; S.cart.con=con; S.cart.base=Object.fromEntries(base.map(b=>[b.matricula,b])); S.cart.loaded=key;
 }
 function viewCarteira(){ return '<div id="cartBox"><div class="loading"><div class="spin"></div>Lendo a carteira…</div></div>'; }
@@ -709,15 +733,15 @@ function cartAgg(){
 function setCF(k,v){ S.cf[k]=v; S.cf.lim=60; $('cartTb').innerHTML=cartTable(); }
 function carteiraHTML(){
   const comps=compsDisponiveis();
-  if(!comps.length) return `<div class="sec-h"><div><h2>Acompanhamento de Carteira</h2></div></div><div class="card empty"><b>Nenhuma carteira anexada ainda</b>${S.gestao?'Anexe a carteira do mês em Gestão › Cargas.':'A gestão ainda não anexou a carteira do mês.'}</div>`;
+  if(!comps.length) return `<div class="sec-h"><div><h2>Acompanhamento de Carteira</h2></div></div><div class="card empty"><b>Nenhuma carteira anexada ainda</b>${S.gestao?'Anexe a carteira do mês e a base Procx em Gestão › Cargas.':'A gestão ainda não anexou a carteira do mês.'}</div>`;
   const g=cartAgg(); const nMat=new Set(g.F.map(f=>f.matricula)).size;
-  const carga=S.cargas.find(c=>c.tipo==='carteira_mensal'&&c.competencia===S.cart.comp);
+  const carga=S.cargas.find(c=>(c.tipo==='procx'||c.tipo==='carteira_mensal')&&c.competencia===S.cart.comp);
   const semExec = S.gestao && !execFoco() ? g.F.filter(f=>!f.executivo).length : 0;
   const p1=g.C.filter(c=>c.prioridade==='Prioridade 1').length, p2=g.C.filter(c=>c.prioridade==='Prioridade 2').length;
   return `
   <div class="sec-h"><div><h2>Acompanhamento de Carteira</h2><p>Carteira de ${compLbl(S.cart.comp)} · anexada em ${fdt(carga?.enviado_em)}</p></div>
     <div class="acts"><select class="sel" onchange="S.cart.comp=this.value;S.cart.loaded=null;render()">${comps.map(c=>`<option value="${c}" ${c===S.cart.comp?'selected':''}>${compLbl(c)}</option>`).join('')}</select></div></div>
-  ${semExec?`<div class="msg info">${int(semExec)} matrículas desta carteira não estão vinculadas a nenhum executivo. Atualize a base Matrícula → Executivo em Gestão › Cargas.</div>`:''}
+  ${semExec?`<div class="msg info">${int(semExec)} matrículas desta carteira não estão vinculadas a nenhum executivo. Anexe a carteira do mês em Gestão › Cargas para cruzar.</div>`:''}
   <div class="kpis">
     <div class="k hero-k"><div class="l">Matrículas faturadas</div><div class="v">${int(nMat)}</div><div class="s">${money(g.fatTot)} faturado</div></div>
     <div class="k c3"><div class="l">Pagos</div><div class="v">${int(g.by.Pagou.n)}</div><div class="s">${money(g.by.Pagou.v)} · ${nMat?pct(g.by.Pagou.n/nMat,0):'—'}</div></div>
@@ -962,19 +986,27 @@ async function afterCadPes(){
    ===================================================================== */
 function plrRow(e,c,i){ return S.plr.find(r=>r.executivo===e&&r.competencia===c&&r.indicador===i); }
 function plrJust(e,c,i){ return S.just.find(j=>j.executivo===e&&j.competencia===c&&j.indicador===i&&j.status!=='Rejeitada') || S.just.find(j=>j.executivo===e&&j.competencia===c&&j.indicador===i); }
+function consRow(e,c){ return S.consumo.find(r=>r.executivo===e&&r.competencia===c); }
+const consMeta = r => Math.max(150, +r.meta_prioridade||0);
 function plrSt(e,c,i){
+  if(i==='consumo'){ const r=consRow(e,c);
+    if(r){ if(r.status==='Aprovado') return {st:'ok',r};
+      if(r.status==='Justificado') return {st:'ju',r,j:{status:'Aprovada',motivo:r.motivo||'Justificado na planilha',descricao:null}};
+      const j=plrJust(e,c,i); if(j?.status==='Aprovada') return {st:'ju',r,j}; if(j?.status==='Pendente') return {st:'pe',r,j};
+      return {st:'no',r,j}; } }
   const r=plrRow(e,c,i); if(!r||r.realizado==null||r.meta==null) return {st:'na',r};
   if(+r.realizado>=+r.meta) return {st:'ok',r};
   const j=plrJust(e,c,i);
   if(j?.status==='Aprovada') return {st:'ju',r,j}; if(j?.status==='Pendente') return {st:'pe',r,j};
   return {st:'no',r,j};
 }
-function plrVal(r){ if(!r||r.realizado==null) return '—'; return r.unidade==='qtd'?`${int(r.realizado)}/${int(r.meta)}`:pct(r.realizado); }
-function plrMonths(){ const y=String(S.plrAno); const ms=[...new Set(S.plr.filter(r=>r.competencia.startsWith(y)).map(r=>r.competencia))];
+function plrVal(r){ if(r&&r.p1!==undefined) return `${int(r.analise_geral||0)}/${int(consMeta(r))}`; if(!r||r.realizado==null) return '—'; return r.unidade==='qtd'?`${int(r.realizado)}/${int(r.meta)}`:pct(r.realizado); }
+function plrMonths(){ const y=String(S.plrAno); const ms=[...new Set([...S.plr,...S.consumo].filter(r=>r.competencia.startsWith(y)).map(r=>r.competencia))];
   const cur=nowComp(); for(let m=1;m<=12;m++){ const c=y+'-'+String(m).padStart(2,'0'); if(c<=cur&&!ms.includes(c)) ms.push(c); } return ms.sort(); }
 function plrResumo(e){
   const y=String(S.plrAno); let ok=0,n=0;
-  S.plr.filter(r=>r.competencia.startsWith(y)&&(!e||r.executivo===e)).forEach(r=>{ const s=plrSt(r.executivo,r.competencia,r.indicador).st; if(s==='na') return; n++; if(s==='ok'||s==='ju') ok++; });
+  const keys=new Set([...S.plr.map(r=>r.executivo+'|'+r.competencia+'|'+r.indicador),...S.consumo.map(r=>r.executivo+'|'+r.competencia+'|consumo')]);
+  keys.forEach(k=>{ const [ex,c,i]=k.split('|'); if(!c.startsWith(y)||(e&&ex!==e)) return; const s=plrSt(ex,c,i).st; if(s==='na') return; n++; if(s==='ok'||s==='ju') ok++; });
   return {ok,n};
 }
 function plrCell(e,c,i){
@@ -986,7 +1018,7 @@ function plrCell(e,c,i){
 }
 function viewPlr(){
   const e=execFoco(), ms=plrMonths();
-  const anos=[...new Set([...S.plr.map(r=>+r.competencia.slice(0,4)),new Date().getFullYear()])].sort();
+  const anos=[...new Set([...S.plr,...S.consumo].map(r=>+r.competencia.slice(0,4)).concat([new Date().getFullYear()]))].sort();
   const legend=`<div class="legend"><span><i class="sw" style="background:var(--leaf-soft)"></i>Atingida</span><span><i class="sw" style="background:var(--rose-soft)"></i>Não atingida — clique para justificar</span><span><i class="sw" style="background:var(--amber-soft)"></i>Justificativa em análise</span><span><i class="sw" style="background:var(--water-soft)"></i>Justificativa aprovada</span><span><i class="sw" style="background:var(--bg)"></i>Sem dado</span></div>`;
   let tb;
   if(e){
@@ -1006,30 +1038,32 @@ function viewPlr(){
   return `<div class="sec-h"><div><h2>Acompanhamento das Metas PLR</h2><p>Cadastral · Pesquisa · Arrecadação · Consumo estratégico</p></div>
     <div class="acts"><select class="sel" onchange="S.plrAno=+this.value;render()">${anos.map(a=>`<option ${a===S.plrAno?'selected':''}>${a}</option>`).join('')}</select></div></div>
   ${legend}${tb}
+  ${e?consumoExecHTML(e):(S.plrInd==='consumo'?consumoTimeHTML():'')}
   <div class="sec-h" style="margin-top:22px"><div><h2 style="font-size:18px">Justificativas de não atingimento</h2><p>Validadas e aprovadas por Tayene ou Day</p></div></div>
   ${J.length?`<div class="scroll"><table><thead><tr><th>Mês</th>${S.gestao&&!execFoco()?'<th>Executivo</th>':''}<th>Indicador</th><th>Motivo</th><th>Descrição</th><th>Status</th><th>Parecer</th></tr></thead><tbody>
     ${J.map(j=>`<tr><td>${compLbl(j.competencia)}</td>${S.gestao&&!execFoco()?`<td>${esc(j.executivo)}</td>`:''}<td>${IND[j.indicador]?.nome||j.indicador}</td><td>${esc(j.motivo)}</td><td class="wrap-c">${esc(j.descricao||'—')}</td>
       <td><span class="pill ${j.status==='Aprovada'?'st-3':j.status==='Rejeitada'?'st-4':'st-5'}">${j.status}</span></td><td class="wrap-c">${esc(j.parecer||'')}${j.validado_por?`<br><span class="mat">${esc(j.validado_por)} · ${fdate(j.validado_em)}</span>`:''}</td></tr>`).join('')}</tbody></table></div>`
   :'<div class="card empty"><b>Nenhuma justificativa enviada</b>Quando uma meta não for atingida, clique na célula vermelha para justificar.</div>'}`;
 }
-function fonteInd(k){ const s=new Set(S.plr.filter(r=>r.indicador===k&&r.fonte).map(r=>r.fonte)); return s.size?[...s].join(', '):({cadastral:'Plataforma de Atualização Cadastral',pesquisa:'Plataforma de Pesquisa de Satisfação',arrecadacao:'Painel Time',consumo:'Planilha de Consumo Estratégico'}[k]); }
+function fonteInd(k){ if(k==='consumo'&&S.consumo.length) return 'Planilha PLR Consumo Estratégico · total analisado / meta do mês'; const s=new Set(S.plr.filter(r=>r.indicador===k&&r.fonte).map(r=>r.fonte)); return s.size?[...s].join(', '):({cadastral:'Plataforma de Atualização Cadastral',pesquisa:'Plataforma de Pesquisa de Satisfação',arrecadacao:'Painel Time',consumo:'Planilha de Consumo Estratégico'}[k]); }
 function plrClick(e,c,i){
   const {st,r,j}=plrSt(e,c,i), mine=!S.gestao||e===S.me.executivo;
-  const head=`<div class="mh"><div><h3>${IND[i].nome} · ${compLbl(c)}</h3><p>${esc(e)} · realizado ${plrVal(r)}${r?.meta!=null?` · meta ${r.unidade==='qtd'?int(r.meta):pct(r.meta,0)}`:''}</p></div><button class="x" onclick="closeModal()">×</button></div>`;
-  let body='', foot='';
+  const isC = r&&r.p1!==undefined;
+  const head=`<div class="mh"><div><h3>${IND[i].nome} · ${compLbl(c)}</h3><p>${esc(e)} · ${isC?`total analisado ${plrVal(r)}`:`realizado ${plrVal(r)}${r?.meta!=null?` · meta ${r.unidade==='qtd'?int(r.meta):pct(r.meta,0)}`:''}`}</p></div><button class="x" onclick="closeModal()">×</button></div>`;
+  let body=isC?consumoMesHTML(r):'', foot='';
   if(j) body+=`<div class="msg ${j.status==='Aprovada'?'ok':j.status==='Rejeitada'?'err':'info'}">Justificativa <b>${j.status.toLowerCase()}</b>: ${esc(j.motivo)}${j.descricao?' — '+esc(j.descricao):''}${j.parecer?`<br>Parecer: ${esc(j.parecer)}`:''}</div>`;
   if((st==='no') && (mine||S.gestao)){
     body+=`<div class="fld"><label>Motivo do não atingimento</label><select id="j_mot">${MOTIVOS_PLR.map(m=>`<option>${m}</option>`).join('')}</select></div>
       <div class="fld"><label>Descreva a justificativa</label><textarea id="j_desc" rows="4" placeholder="Ex.: férias de 10 a 24/10; alinhado com a gestão em…"></textarea></div><div id="j_msg"></div>`;
     foot+=`<button class="btn" onclick="sendJust('${esc(e)}','${c}','${i}')">Enviar justificativa</button>`;
   }
-  if(S.gestao){
+  if(S.gestao&&!isC){
     body+=`<h3 style="font-family:var(--font-display);font-size:14.5px;margin:12px 0 8px">Ajustar resultado (gestão)</h3><div class="fgrid">
       <div class="fld"><label>Realizado ${r?.unidade==='qtd'||IND[i].un==='qtd'?'(qtd)':'(%)'}</label><input id="p_real" inputmode="decimal" value="${r?.realizado!=null?(r.unidade==='pct'?nf(r.realizado*100,2):r.realizado):''}"></div>
       <div class="fld"><label>Meta ${r?.unidade==='qtd'||IND[i].un==='qtd'?'(qtd)':'(%)'}</label><input id="p_meta" inputmode="decimal" value="${r?.meta!=null?(r.unidade==='pct'?nf(r.meta*100,2):r.meta):''}"></div></div>`;
     foot+=`<button class="btn sec" onclick="savePlrCell('${esc(e)}','${c}','${i}')">Salvar resultado</button>`;
   }
-  modal(`<div class="modal sm">${head}<div class="mb">${body||'<p class="mat">Meta atingida.</p>'}</div><div class="mf"><button class="btn sec" onclick="closeModal()">Fechar</button>${foot}</div></div>`);
+  modal(`<div class="modal ${isC?'':'sm'}">${head}<div class="mb">${body||'<p class="mat">Meta atingida.</p>'}</div><div class="mf"><button class="btn sec" onclick="closeModal()">Fechar</button>${foot}</div></div>`);
 }
 async function sendJust(e,c,i){
   const rec={executivo:e,competencia:c,indicador:i,motivo:$('j_mot').value,descricao:$('j_desc').value.trim()||null};
@@ -1086,6 +1120,79 @@ async function decJust(id,st){
   toast('Justificativa '+st.toLowerCase()); await reload('just'); render();
 }
 </script>
+
+<script>
+/* =====================================================================
+   CONSUMO ESTRATÉGICO · números do mês
+   ===================================================================== */
+function consCalc(r){
+  const meta=+r.meta_prioridade||0, an=+r.prioridade_analisado||0, geral=+r.analise_geral||0;
+  const metaMes=Math.max(150,meta), faltaP12=Math.max(0,-(+r.delta_prioridade||0)), faltaTotal=Math.max(0,150-geral);
+  const p3=Math.max(0,geral-an), p3nec=Math.max(0,150-meta);
+  return {meta,an,geral,metaMes,faltaP12,faltaTotal,p3,p3nec,prod:r.produtividade!=null?+r.produtividade:(meta?an/meta:null)};
+}
+function barra(v,m,cor){ const p=m?Math.min(1,v/m):0; return `<div class="bar" style="height:8px;background:var(--water-soft);border-radius:99px;overflow:hidden;margin-top:6px"><i style="display:block;height:100%;width:${(p*100).toFixed(0)}%;background:${cor};border-radius:99px"></i></div>`; }
+function stPillC(r){ return `<span class="pill ${r.status==='Aprovado'?'st-3':r.status==='Justificado'?'st-1':'st-4'}">${r.status}</span>`; }
+function consumoMesHTML(r){
+  const k=consCalc(r);
+  return `<div class="kpis" style="margin:0 0 14px;grid-template-columns:repeat(3,1fr)">
+    <div class="k ${k.faltaP12?'c4':'c3'}"><div class="l">Prioridade 1 e 2 (obrigatório 100%)</div><div class="v">${int(k.an)} / ${int(k.meta)}</div><div class="s">P1 ${int(r.p1)} · P2 ${int(r.p2)} · ${k.faltaP12?`faltaram ${int(k.faltaP12)}`:'todas feitas ✓'}</div>${barra(k.an,k.meta,k.faltaP12?'var(--rose)':'var(--leaf)')}</div>
+    <div class="k ${k.faltaTotal?'c4':'c3'}"><div class="l">Total analisado (mínimo 150)</div><div class="v">${int(k.geral)} / 150</div><div class="s">${k.faltaTotal?`faltaram ${int(k.faltaTotal)}`:`${int(r.delta_meta150)} acima do mínimo ✓`}</div>${barra(k.geral,150,k.faltaTotal?'var(--rose)':'var(--leaf)')}</div>
+    <div class="k c2"><div class="l">Prioridade 3 (compensação)</div><div class="v">${int(k.p3)}</div><div class="s">${k.p3nec?`precisava de pelo menos ${int(k.p3nec)} P3`:'P1+P2 já passam de 150: P3 não obrigatória'}</div>${k.p3nec?barra(k.p3,k.p3nec,'var(--water)'):''}</div>
+  </div>
+  <p style="font-size:13px;color:var(--text-mut)">Meta do mês: <b>${int(k.metaMes)}</b> análises, com 100% das P1 e P2 · Produtividade P1+P2: <b>${pct(k.prod,0)}</b> · Resultado: ${stPillC(r)}${r.motivo?` <span class="mat">(${esc(r.motivo)})</span>`:''}</p>`;
+}
+const COMO_FUNCIONA=`<div class="msg info" style="margin:0 0 14px"><b>Como funciona a meta:</b> todo mês é obrigatório analisar <b>100% das Prioridades 1 e 2</b> e chegar a no mínimo <b>150 análises</b> no total.
+  Se P1+P2 somarem menos que 150, a diferença é completada com <b>Prioridade 3</b>. Se P1+P2 passarem de 150, é preciso fazer <b>todas</b> elas (a meta do mês vira P1+P2).
+  Elegível ao PLR quem bate a meta em todos os meses que contam (meses justificados não entram na conta).</div>`;
+function consElegib(e){
+  const rs=S.consumo.filter(r=>r.executivo===e&&r.competencia.startsWith(String(S.plrAno)));
+  const st=rs.map(r=>plrSt(e,r.competencia,'consumo').st), ok=st.filter(s=>s==='ok').length, ju=st.filter(s=>s==='ju').length, base=st.length-ju;
+  return {ok,ju,base,n:st.length,pctA:base?ok/base:null,eleg:base>0&&ok===base};
+}
+function consumoExecHTML(e){
+  const rs=S.consumo.filter(r=>r.executivo===e&&r.competencia.startsWith(String(S.plrAno)));
+  if(!rs.length) return '';
+  const ult=rs.at(-1), el=consElegib(e);
+  return `<div class="card"><h2>Consumo Estratégico · seus números</h2><p class="sub" style="margin-bottom:14px">Último mês: ${compLbl(ult.competencia)} · aprovação no ano <b>${pct(el.pctA,0)}</b> (${el.ok} de ${el.base} meses que contam${el.ju?`, ${el.ju} justificado(s)`:''}) · ${el.eleg?'<span class="pill st-3">Elegível ao PLR</span>':'<span class="pill st-4">Não elegível ao PLR</span>'}</p>
+    ${COMO_FUNCIONA}${consumoMesHTML(ult)}</div>
+  <div class="card"><h3>Mês a mês</h3>${consTabela(rs,false)}</div>`;
+}
+function consTabela(rs,comExec){
+  return `<div class="scroll"><table><thead><tr>${comExec?'<th>Executivo</th>':'<th>Mês</th>'}<th class="r">P1</th><th class="r">P2</th><th class="r">Meta P1+P2</th><th class="r">P1+P2 feitas</th><th class="r">Faltaram P1+P2</th><th class="r">Produtiv.</th><th class="r">P3 feitas</th><th class="r">Total analisado</th><th class="r">Meta do mês</th><th class="r">Δ mínimo 150</th><th>Resultado</th></tr></thead><tbody>
+    ${rs.map(r=>{ const k=consCalc(r); const e=r.executivo, c=r.competencia;
+      return `<tr style="cursor:pointer" onclick="plrClick('${esc(e)}','${c}','consumo')">${comExec?`<td><b>${esc(e)}</b></td>`:`<td><b>${compLbl(c)}</b></td>`}
+      <td class="r">${int(r.p1)}</td><td class="r">${int(r.p2)}</td><td class="r">${int(k.meta)}</td><td class="r">${int(k.an)}</td>
+      <td class="r" style="color:${k.faltaP12?'var(--rose)':'var(--leaf)'};font-weight:700">${k.faltaP12?'-'+int(k.faltaP12):'0'}</td>
+      <td class="r">${pct(k.prod,0)}</td><td class="r">${int(k.p3)}</td><td class="r"><b>${int(k.geral)}</b></td><td class="r">${int(k.metaMes)}</td>
+      <td class="r" style="color:${(+r.delta_meta150||0)<0?'var(--rose)':'var(--leaf)'};font-weight:700">${(+r.delta_meta150||0)>0?'+':''}${int(r.delta_meta150)}</td>
+      <td>${(()=>{ const s=plrSt(e,c,'consumo').st; return s==='ok'?'<span class="pill st-3">Aprovado</span>':s==='ju'?'<span class="pill st-1">Justificado</span>':s==='pe'?'<span class="pill st-5">Justif. em análise</span>':'<span class="pill st-4">Reprovado</span>'; })()}</td></tr>`;}).join('')}
+  </tbody></table></div>`;
+}
+S.consMes=null;
+function consumoTimeHTML(){
+  const y=String(S.plrAno), meses=[...new Set(S.consumo.filter(r=>r.competencia.startsWith(y)).map(r=>r.competencia))].sort();
+  if(!meses.length) return '<div class="card empty"><b>Sem dados de Consumo Estratégico</b>Anexe a planilha PLR Consumo Estratégico em Gestão › Cargas.</div>';
+  const m=meses.includes(S.consMes)?S.consMes:meses.at(-1);
+  const rs=S.consumo.filter(r=>r.competencia===m).sort((a,b)=>(+b.analise_geral||0)-(+a.analise_geral||0));
+  const st=rs.map(r=>plrSt(r.executivo,m,'consumo').st);
+  const execs=[...new Set(S.consumo.filter(r=>r.competencia.startsWith(y)).map(r=>r.executivo))];
+  const eleg=execs.filter(x=>consElegib(x).eleg).length;
+  return `<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start"><div><h2>Consumo Estratégico · números do time</h2><p class="sub">Clique numa linha para ver o detalhe do executivo no mês.</p></div>
+    <select class="sel" onchange="S.consMes=this.value;render()">${meses.map(x=>`<option value="${x}" ${x===m?'selected':''}>${compLbl(x)}</option>`).join('')}</select></div>
+    <div class="kpis">
+      <div class="k"><div class="l">Executivos no mês</div><div class="v">${rs.length}</div></div>
+      <div class="k c3"><div class="l">Bateram a meta</div><div class="v">${st.filter(s=>s==='ok').length}</div></div>
+      <div class="k c4"><div class="l">Não bateram</div><div class="v">${st.filter(s=>s==='no'||s==='pe').length}</div></div>
+      <div class="k c2"><div class="l">Justificados</div><div class="v">${st.filter(s=>s==='ju').length}</div></div>
+      <div class="k c5"><div class="l">Elegíveis ao PLR (ano)</div><div class="v">${eleg} / ${execs.length}</div><div class="s">${execs.length?pct(eleg/execs.length,0):'—'} de elegibilidade</div></div>
+    </div>
+    <div style="margin-top:16px">${COMO_FUNCIONA}</div>${consTabela(rs,true)}</div>
+  <div class="card"><h3>Aprovação no ano por executivo</h3><div class="scroll"><table><thead><tr><th>Executivo</th><th class="r">Aprovados</th><th class="r">Justificados</th><th class="r">Meses que contam</th><th class="r">% aprovação</th><th>Elegibilidade PLR</th></tr></thead><tbody>
+    ${execs.sort().map(x=>{ const el=consElegib(x); return `<tr><td><button class="link" onclick="setVer('${esc(x)}')">${esc(x)}</button></td><td class="r">${el.ok}</td><td class="r">${el.ju}</td><td class="r">${el.base}</td><td class="r"><b>${pct(el.pctA,0)}</b></td><td>${el.eleg?'<span class="pill st-3">Elegível</span>':'<span class="pill st-4">Não elegível</span>'}</td></tr>`; }).join('')}
+  </tbody></table></div></div>`;
+}
+</script>
 <script>
 /* =====================================================================
    GESTÃO · CARGAS E USUÁRIOS
@@ -1098,17 +1205,19 @@ function viewGestao(){
   ${S.gtab==='cargas'?cargasHTML():usuariosHTML()}`;
 }
 function dropBox(id,label,accept,fn){ return `<label class="drop">${label}<input type="file" id="${id}" accept="${accept}" onchange="${fn}(this.files[0]);this.value=''"></label>`; }
+function ultCarga(tipo){ const c=S.cargas.find(c=>c.tipo===tipo||(tipo==='procx'&&c.tipo==='carteira_mensal'));
+  return c?`Última: ${esc(c.arquivo)} · ${compLbl(c.competencia)} · ${int(c.linhas)} linhas · ${fdt(c.enviado_em)}`:'Ainda não enviada'; }
 function cargasHTML(){
-  const nb=S.cargas.find(c=>c.tipo==='carteira_base');
   return `<div class="upl">
-    <div class="card"><h3>1 · Carteira do mês</h3><p>Planilha "Acomp Carteiras" com as abas <b>Faturamento</b>, <b>Arrecadação</b> e <b>Consumo</b>. Recarregar um mês substitui os dados dele. Matrículas da Ação 1 com pagamento passam para "Pagamento identificado".</p>
-      ${dropBox('upCart','📎 Anexar carteira do mês (.xlsx)','.xlsx,.xls','upCarteira')}</div>
-    <div class="card"><h3>2 · Base Matrícula → Executivo</h3><p>Qualquer planilha com <b>Matrícula</b> e <b>Executivo</b> (e, se tiver, Cliente, Curva, Carteira, Utilização, Situação, Bairro). É o que liga a carteira mensal a cada executivo.</p>
-      ${dropBox('upBase','📎 Anexar base de carteira (.xlsx / .csv)','.xlsx,.xls,.csv','upCarteiraBase')}
-      <p class="mat" style="margin-top:8px">${nb?`Última: ${esc(nb.arquivo)} · ${int(nb.linhas)} matrículas · ${fdt(nb.enviado_em)}`:'Ainda não enviada'}</p></div>
+    <div class="card"><h3>1 · Carteira do mês</h3><p>Planilha da carteira dos executivos com <b>Matrícula</b> e <b>Executivo</b> (e, se tiver, Cliente, Curva, Carteira, Utilização, Situação, Bairro). Define de quem é cada matrícula naquele mês.</p>
+      ${dropBox('upCartMes','📎 Anexar carteira do mês (.xlsx / .csv)','.xlsx,.xls,.csv','upArquivo')}
+      <p class="mat" style="margin-top:8px">${ultCarga('carteira_exec')}</p></div>
+    <div class="card"><h3>2 · Base Procx (Acomp Carteiras)</h3><p>Planilha com as abas <b>Faturamento</b>, <b>Arrecadação</b> e <b>Consumo</b>. A plataforma cruza pela matrícula com a carteira do mês para saber de qual executivo é cada fatura e pagamento.</p>
+      ${dropBox('upCart','📎 Anexar base Procx (.xlsx)','.xlsx,.xls','upArquivo')}
+      <p class="mat" style="margin-top:8px">${ultCarga('procx')}</p></div>
     <div class="card"><h3>3 · PLR Arrecadação · Painel Time</h3><p>Anexe o arquivo <b>Painel Time.html</b> (painel da Carol). A plataforma lê a meta PLR de 95% por executivo e mês.</p>
       ${dropBox('upPT','📎 Anexar Painel Time (.html)','.html,.htm','upPainelTime')}</div>
-    <div class="card"><h3>4 · PLR · Consumo estratégico e outros</h3><p>Planilha com <b>Executivo</b>, <b>Competência</b> (mês), <b>Realizado</b>, <b>Meta</b> e, opcional, <b>Indicador</b>. Sem coluna Indicador, usa o escolhido abaixo.</p>
+    <div class="card"><h3>4 · PLR · Consumo estratégico e outros</h3><p>Anexe a planilha <b>PLR Consumo Estratégico</b> (aba Base: P1, P2, analisado, análise geral) e a plataforma traz os números de cada executivo. Também aceita planilha simples com Executivo, Competência, Realizado e Meta.</p>
       <div class="fld"><select id="plrIndUp" class="sel">${Object.entries(IND).map(([k,v])=>`<option value="${k}" ${k==='consumo'?'selected':''}>${v.nome}</option>`).join('')}</select></div>
       ${dropBox('upPLR','📎 Anexar planilha PLR (.xlsx)','.xlsx,.xls,.csv','upPlanilhaPLR')}
       <button class="link" style="margin-top:8px" onclick="modeloPLR()">⬇ Baixar modelo</button></div>
@@ -1153,7 +1262,7 @@ function toComp(v){
   return null;
 }
 const A_MAT=['matricula','numligacao','ligacao','matriculacliente'];
-const A_EXE=['executivo','responsavel','executivoresponsavel','executivodecontas'];
+const A_EXE=['executivo','executivoresponsavel','executivodecontas','nomeexecutivo','executivoatual','responsavel','consultor','analista'];
 
 function upMsg(h){ S.upMsg=h; if($('upProg')) $('upProg').innerHTML=h; }
 function prog(t,p){ $('upProg').innerHTML=`<div class="card"><b>${esc(t)}</b><div class="prog"><i style="width:${Math.round(p*100)}%"></i></div></div>`; }
@@ -1164,11 +1273,53 @@ async function insertChunks(table,rows,label,base=0,tot=1,size=500){
   }
 }
 
-/* ---------- 1 · carteira do mês ---------- */
-async function upCarteira(file){
+/* ---------- identifica o arquivo (carteira do mês x base Procx) ---------- */
+async function upArquivo(file){
   if(!file) return;
   try{
-    const wb=await readBook(file); const out={fat:[],arr:[],con:[],base:[]};
+    const wb=await readBook(file);
+    const temProcx=wb.SheetNames.some(n=>/fatur|arrec/.test(norm(n)));
+    if(temProcx) return await upProcx(file,wb);
+    const linhas=carteiraRows(wb);
+    if(linhas.length) return await upCarteiraMensal(file,linhas);
+    const resumo=wb.SheetNames.slice(0,6).map(n=>{ const {head}=sheetRows(wb.Sheets[n]); return `<b>${esc(n)}</b>: ${esc(head.filter(Boolean).slice(0,14).join(', '))}`; }).join('<br>');
+    throw new Error(`Não reconheci este arquivo. Preciso de uma coluna de Matrícula e outra de Executivo (carteira do mês) ou das abas Faturamento/Arrecadação (base Procx).<br><span class="mat">Abas e colunas encontradas:</span><br>${resumo}`);
+  }catch(e){ upMsg(`<div class="msg err">Erro: ${e.message?e.message:esc(e)}</div>`); }
+}
+function carteiraRows(wb){
+  const execs=new Set(execList().map(norm)); let all=[];
+  for(const sn of wb.SheetNames){
+    const {head,rows}=sheetRows(wb.Sheets[sn]);
+    if(colIdx(head,A_MAT)<0) continue;
+    if(colIdx(head,A_EXE)>=0){ all.push(...baseRows(head,rows)); continue; }
+    // uma aba por executivo: usa o nome da aba
+    if(execs.has(norm(sn))){ const nome=execList().find(e=>norm(e)===norm(sn));
+      all.push(...baseRows([...head,'Executivo'],rows.map(r=>{ const x=[...r]; x[head.length]=nome; return x; }))); }
+  }
+  return all;
+}
+async function upCarteiraMensal(file,linhas){
+  const uniq=[...new Map(linhas.map(r=>[r.matricula,r])).values()];
+  const nEx=new Set(uniq.map(u=>u.executivo)).size;
+  const comp=prompt(`Carteira do mês: ${int(uniq.length)} matrículas de ${nEx} executivos.\n\nQual a competência (AAAA-MM)?`,nowComp());
+  if(!comp) return; if(!/^\d{4}-\d{2}$/.test(comp)) throw new Error('Competência inválida. Use AAAA-MM.');
+  prog('Gravando carteira do mês…',0);
+  { const {error}=await sb.from('carteira_hist').delete().eq('competencia',comp); if(error) throw error; }
+  await insertChunks('carteira_hist',uniq.map(r=>({...r,competencia:comp})),'Gravando carteira do mês…',0,2);
+  const ult=S.cargas.filter(c=>c.tipo==='carteira_exec').map(c=>c.competencia).sort().at(-1);
+  if(!ult||comp>=ult){ // carteira mais recente vira a base atual
+    for(let i=0;i<uniq.length;i+=500){ const {error}=await sb.from('carteira_base').upsert(uniq.slice(i,i+500).map(r=>({...r,atualizado_em:new Date().toISOString()})),{onConflict:'matricula'}); if(error) throw error; prog('Atualizando carteira atual…',.5+.5*Math.min(i+500,uniq.length)/uniq.length); }
+  }
+  for(const c of compsDisponiveis()) await sb.rpc('fn_vincular_executivo',{p_comp:c});
+  await sb.from('cargas').insert({tipo:'carteira_exec',competencia:comp,arquivo:file.name,linhas:uniq.length,detalhe:{executivos:nEx}});
+  const temProcx=compsDisponiveis().includes(comp);
+  upMsg(`<div class="msg ok">Carteira de ${compLbl(comp)} gravada · ${int(uniq.length)} matrículas de ${nEx} executivos.${temProcx?' Faturamento e arrecadação do mês já foram cruzados.':' Agora anexe a base Procx do mês para cruzar faturamento e arrecadação.'}</div>`);
+  S.cart.base=null; S.cart.loaded=null; await reload('cargas'); render();
+}
+/* ---------- 2 · base Procx (faturamento / arrecadação / consumo) ---------- */
+async function upProcx(file,wb){
+  {
+    const out={fat:[],arr:[],con:[],base:[]};
     for(const sn of wb.SheetNames){
       const {head,rows}=sheetRows(wb.Sheets[sn]); const n=norm(sn);
       const iM=colIdx(head,A_MAT); if(iM<0) continue;
@@ -1192,7 +1343,7 @@ async function upCarteira(file){
         out.base.push(...baseRows(head,rows));
       }
     }
-    if(!out.fat.length&&!out.arr.length) throw new Error('Não encontrei as abas de Faturamento / Arrecadação com a coluna Matrícula.');
+    if(!out.fat.length&&!out.arr.length) throw new Error('Achei as abas de Faturamento/Arrecadação, mas sem a coluna Matrícula.');
     // status quando a planilha não traz
     const pagos=new Set(out.arr.map(a=>a.matricula)), hoje=new Date().toISOString().slice(0,10);
     out.fat.forEach(f=>{ if(!f.status) f.status=pagos.has(f.matricula)?'Pagou':(f.vencimento&&f.vencimento<hoje?'Vencido':'A vencer');
@@ -1201,8 +1352,8 @@ async function upCarteira(file){
     const sug=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0]?.[0]||nowComp();
     const comp=prompt(`Arquivo lido: ${out.fat.length} faturas, ${out.arr.length} pagamentos, ${out.con.length} leituras de consumo${out.base.length?`, ${out.base.length} linhas de carteira`:''}.\n\nQual a competência (AAAA-MM)?`,sug);
     if(!comp) return; if(!/^\d{4}-\d{2}$/.test(comp)) throw new Error('Competência inválida. Use AAAA-MM.');
-    const existe=S.cargas.some(c=>c.tipo==='carteira_mensal'&&c.competencia===comp);
-    if(existe&&!confirm(`Já existe carteira de ${compLbl(comp)}. Substituir?`)) return;
+    const existe=compsDisponiveis().includes(comp);
+    if(existe&&!confirm(`Já existe base Procx de ${compLbl(comp)}. Substituir?`)) return;
     prog('Preparando…',0);
     if(out.base.length) await upsertBase(out.base,file.name+' (aba carteira)');
     { const {error}=await sb.rpc('fn_limpar_competencia',{p_comp:comp}); if(error) throw error; }
@@ -1213,10 +1364,12 @@ async function upCarteira(file){
     prog('Vinculando executivos e atualizando a Ação 1…',1);
     { const {error}=await sb.rpc('fn_vincular_executivo',{p_comp:comp}); if(error) throw error; }
     const {data:nPag,error:e2}=await sb.rpc('fn_aplicar_pagamentos',{p_comp:comp}); if(e2) throw e2;
-    await sb.from('cargas').insert({tipo:'carteira_mensal',competencia:comp,arquivo:file.name,linhas:out.fat.length,detalhe:{faturas:out.fat.length,pagamentos:out.arr.length,consumo:out.con.length,'ação 1 pagas':nPag}});
-    upMsg(`<div class="msg ok">Carteira de ${compLbl(comp)} carregada · ${nPag} matrícula(s) da Ação 1 passaram para "Pagamento identificado".</div>`);
+    await sb.from('cargas').insert({tipo:'procx',competencia:comp,arquivo:file.name,linhas:out.fat.length,detalhe:{faturas:out.fat.length,pagamentos:out.arr.length,consumo:out.con.length,'ação 1 pagas':nPag}});
+    const semExec=await sb.from('cart_faturamento').select('id',{count:'exact',head:true}).eq('competencia',comp).is('executivo',null);
+    const temCart=S.cargas.some(c=>c.tipo==='carteira_exec'&&c.competencia===comp);
+    upMsg(`<div class="msg ok">Base Procx de ${compLbl(comp)} carregada e cruzada com a carteira${temCart?' do mês':' mais recente'} · ${nPag} matrícula(s) da Ação 1 passaram para "Pagamento identificado".${semExec.count?` <br>${int(semExec.count)} faturas sem executivo (matrícula fora da carteira).`:''}</div>`);
     await Promise.all([reload('cargas'),reload('acao')]); S.cart.comp=comp; S.cart.loaded=null; render();
-  }catch(e){ upMsg(`<div class="msg err">Erro: ${esc(e.message||e)}</div>`); }
+  }
 }
 /* ---------- 2 · base matrícula → executivo ---------- */
 function baseRows(head,rows){
@@ -1265,6 +1418,7 @@ async function upPlanilhaPLR(file){
   if(!file) return;
   try{
     const def=$('plrIndUp').value; const wb=await readBook(file); const rows=[];
+    if(await tentaConsumo(wb,file)) return;
     for(const sn of wb.SheetNames){
       const a=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null,blankrows:false});
       const hi=a.findIndex(r=>(r||[]).some(c=>norm(c).startsWith('executivo'))); if(hi<0) continue;
@@ -1283,6 +1437,40 @@ async function upPlanilhaPLR(file){
     await sb.from('cargas').insert({tipo:'plr_planilha',arquivo:file.name,linhas:uniq.length,detalhe:{indicadores:[...new Set(uniq.map(u=>u.indicador))].join(', ')}});
     upMsg(`<div class="msg ok">${uniq.length} resultados de PLR gravados.</div>`); await Promise.all([reload('plr'),reload('cargas')]); render();
   }catch(e){ upMsg(`<div class="msg err">Erro: ${esc(e.message||e)}</div>`); }
+}
+async function tentaConsumo(wb,file){
+  for(const sn of wb.SheetNames){
+    const a=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null,blankrows:false});
+    const hi=a.findIndex(r=>(r||[]).some(c=>norm(c)==='prioridade1')&&(r||[]).some(c=>norm(c).startsWith('executivo')));
+    if(hi<0) continue;
+    const head=a[hi].map(x=>x==null?'':String(x)), c=k=>colIdx(head,k);
+    const ix={mes:c(['mes','competencia']),ex:c(['executivo']),p1:c(['prioridade1']),p2:c(['prioridade2']),meta:c(['metaprioridade']),an:c(['prioridadeanalisado','prioridadeanalisada']),
+      dp:c(['deltaprioridade']),prod:c(['produtividade%','produtividade']),geral:c(['analisegeral']),d150:c(['deltameta150']),just:c(['justificadosn','justificado'])};
+    const iMot=head.length>13&&!head[13]?13:-1;
+    const ano=prompt(`Planilha de Consumo Estratégico (aba "${sn}"). A coluna Mês não traz o ano.\n\nDe qual ano são os dados?`,String(S.plrAno));
+    if(!ano) return true; if(!/^\d{4}$/.test(ano)) throw new Error('Ano inválido.');
+    const out=[], semMes=[];
+    a.slice(hi+1).forEach(r=>{ const e=String(r[ix.ex]??'').trim(); if(!e) return;
+      const mv=r[ix.mes]; let cp=toComp(mv);
+      if(!cp){ const mi=MESES.findIndex(x=>norm(mv).startsWith(norm(x))); if(mi>=0) cp=ano+'-'+String(mi+1).padStart(2,'0'); }
+      if(!cp){ semMes.push(e); return; }
+      const n=k=>ix[k]>=0?toNum(r[ix[k]]):null;
+      const p1=n('p1'), p2=n('p2'), meta=n('meta')??((p1||0)+(p2||0)), an=n('an'), geral=n('geral');
+      let prod=ix.prod>=0?r[ix.prod]:null; prod=typeof prod==='string'?(parseBR(prod)??0)/(/%/.test(prod)?100:1):prod;
+      const dp=n('dp')??Math.min(0,(an||0)-meta), d150=n('d150')??((geral||0)-150);
+      const j=/^s/i.test(String(ix.just>=0?r[ix.just]??'':'').trim());
+      out.push({executivo:e,competencia:cp,p1,p2,meta_prioridade:meta,prioridade_analisado:an,delta_prioridade:dp,produtividade:prod,analise_geral:geral,delta_meta150:d150,
+        justificado:j,motivo:iMot>=0&&r[iMot]?String(r[iMot]).trim():null,status:j?'Justificado':(dp===0&&d150>=0?'Aprovado':'Reprovado'),fonte:'Planilha · '+file.name,atualizado_em:new Date().toISOString()});
+    });
+    if(!out.length) throw new Error('A aba de Consumo Estratégico não tem linhas válidas.');
+    const uniq=[...new Map(out.map(r=>[r.executivo+r.competencia,r])).values()];
+    for(let i=0;i<uniq.length;i+=500){ const {error}=await sb.from('plr_consumo').upsert(uniq.slice(i,i+500),{onConflict:'executivo,competencia'}); if(error) throw error; }
+    await sb.from('cargas').insert({tipo:'plr_consumo',competencia:uniq.map(u=>u.competencia).sort().at(-1),arquivo:file.name,linhas:uniq.length,detalhe:{aprovados:uniq.filter(u=>u.status==='Aprovado').length,reprovados:uniq.filter(u=>u.status==='Reprovado').length,justificados:uniq.filter(u=>u.status==='Justificado').length}});
+    const conhecidos=new Set(execList()), fora=[...new Set(uniq.map(u=>u.executivo).filter(x=>!conhecidos.has(x)))];
+    upMsg(`<div class="msg ok">Consumo Estratégico atualizado · ${uniq.length} linhas (${[...new Set(uniq.map(u=>u.competencia))].sort().map(compLbl).join(', ')}).${fora.length?`<br>Nomes que não batem com nenhum executivo da plataforma: <b>${esc(fora.join(', '))}</b> — confira a grafia na planilha.`:''}</div>`);
+    await Promise.all([reload('consumo'),reload('cargas')]); render(); return true;
+  }
+  return false;
 }
 function modeloPLR(){
   const ex=execList(), c=nowComp();
@@ -1322,11 +1510,11 @@ function usuariosHTML(){
   if(!S.logins){ S.logins={}; loadLogins(); }
   const ex=execList().filter(x=>!['Carteira Público','Judicial'].includes(x));
   const acesso=u=>{ const l=u.email&&S.logins[u.email.toLowerCase()];
-    if(!u.email) return '<span class="pill st-0">sem e-mail</span>';
+    if(!u.email) return '<span class="pill st-0">ainda não criou</span>';
     if(!l) return '<span class="pill st-5">sem login</span>';
     return `<span class="pill st-3">ativo</span><br><span class="mat">${l.ultimo_acesso?'último acesso '+fdt(l.ultimo_acesso):'nunca entrou'}</span>`; };
   return `<div class="card"><h2>Logins da Carteira Viva</h2>
-    <p class="sub">Cada executivo entra com <b>nome.sobrenome@gestaocarteira.local</b> e vê só a própria carteira. A senha provisória é <b>${SENHA_INICIAL}</b> e a plataforma obriga a troca no primeiro acesso.
+    <p class="sub">Cada executivo cria a própria conta em <b>Primeiro acesso</b> (escolhe o nome dele e cria e-mail e senha) e vê só a própria carteira. Enquanto não criar, aparece como <b>ainda não criou</b> aqui. A gestão não se cadastra por fora: adicione com papel <b>Gestão</b> e o acesso é criado na hora (senha provisória <b>${SENHA_INICIAL}</b>, trocada no primeiro acesso).
     Se alguém esquecer a senha, clique em <b>Redefinir senha</b>: ela volta para a provisória e a pessoa troca de novo ao entrar.
     O campo <b>Executivo</b> precisa ser o nome exatamente como aparece nas bases.</p></div>
   <div class="scroll" style="margin-top:14px"><table><thead><tr><th>Nome</th><th>Executivo (nas bases)</th><th>E-mail de acesso</th><th>Papel</th><th>Valida PLR</th><th>Ativo</th><th>Acesso</th><th></th></tr></thead><tbody>
@@ -1340,12 +1528,12 @@ function usuariosHTML(){
     <td>${acesso(u)}</td>
     <td style="display:flex;gap:6px"><button class="btn sm" onclick="saveUser(${u.id})">Salvar</button>
       ${u.email?`<button class="btn sec sm" onclick="criarLogin('${esc(u.email)}',${!!S.logins[u.email.toLowerCase()]})">${S.logins[u.email.toLowerCase()]?'Redefinir senha':'Criar acesso'}</button>`:''}</td></tr>`).join('')}
-  <tr><td><input class="sel" id="un_new" placeholder="Novo usuário" style="width:140px" oninput="if(!$('um_new').dataset.ed) $('um_new').value=emailPadrao(this.value)"></td>
+  <tr><td><input class="sel" id="un_new" placeholder="Novo usuário" style="width:140px"></td>
     <td><input class="sel" id="ue_new" list="dlExec" style="width:150px"></td>
-    <td><input class="sel" id="um_new" style="width:250px" placeholder="gerado pelo nome" oninput="this.dataset.ed=1"></td>
+    <td><input class="sel" id="um_new" style="width:250px" placeholder="executivo: deixe vazio"></td>
     <td><select class="sel" id="up_new"><option value="executivo">Executivo</option><option value="gestao">Gestão</option></select></td>
     <td style="text-align:center"><input type="checkbox" id="uv_new"></td><td style="text-align:center"><input type="checkbox" id="ua_new" checked></td><td></td>
-    <td><button class="btn ok sm" onclick="saveUser('new')">Adicionar e criar acesso</button></td></tr>
+    <td><button class="btn ok sm" onclick="saveUser('new')">Adicionar</button></td></tr>
   </tbody></table></div><datalist id="dlExec">${ex.map(e=>`<option>${esc(e)}</option>`).join('')}</datalist>`;
 }
 async function criarLogin(email,existe){
@@ -1356,7 +1544,7 @@ async function criarLogin(email,existe){
 }
 async function saveUser(id){
   const g=p=>$(p+'_'+id);
-  const rec={nome:g('un').value.trim(),executivo:g('ue').value.trim()||null,email:(g('um').value.trim().toLowerCase()||emailPadrao(g('un').value))||null,papel:g('up').value,valida_plr:g('uv').checked,ativo:g('ua').checked};
+  const rec={nome:g('un').value.trim(),executivo:g('ue').value.trim()||null,email:(g('um').value.trim().toLowerCase()||(g('up').value==='gestao'?emailPadrao(g('un').value):''))||null,papel:g('up').value,valida_plr:g('uv').checked,ativo:g('ua').checked};
   if(!rec.nome) return toast('Informe o nome.',true);
   const {error}= id==='new' ? await sb.from('usuarios').insert(rec) : await sb.from('usuarios').update(rec).eq('id',id);
   if(error) return toast(error.message,true);
