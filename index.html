@@ -330,9 +330,9 @@ const INTEGRACOES = {
   },
   pesquisa: {
     nome: 'Pesquisa de Satisfação', link: 'https://aguas-do-rio.github.io/Pesquisa-Satisfa-o-GC/',
-    supabaseUrl: 'https://yidsjyfcuzytkejctqfp.supabase.co', key: 'sb_publishable_dJWDHA-YGrM3jIXgFBuk1w_ZxZSaHBQ', tabela: 'registros',
+    supabaseUrl: 'https://yidsjyfcuzytkejctqfp.supabase.co', key: 'sb_publishable_dJWDHA-YGrM3jIXgFBuk1w_ZxZSaHBQ',
+    tabela: 'registros', tabelaMetas: 'metas_executivos',
     select: 'id,matricula,matriculas_adicionais,analista,tipo,data_envio,status,data_resposta,nota_atendimento',
-    tabelaMetas: 'metas_executivos',
     colExecutivo: 'analista', colMatricula: 'matricula', colData: 'data_envio', colStatus: 'status'
   }
 };
@@ -992,9 +992,9 @@ async function extCarteira(k){
 const TIPO_IMPOSS='Não foi possível realizar a pesquisa';
 const qtdMat = r => 1 + String(r.matriculas_adicionais||'').split(/[,\s]+/).filter(Boolean).length;
 async function extMetasPesq(){
-  const c=INTEGRACOES.pesquisa; if(!c.tabelaMetas) return [];
+  const c=INTEGRACOES.pesquisa; if(!c.rpcMetas&&!c.tabelaMetas) return [];
   extClients.pesquisa ||= supabase.createClient(c.supabaseUrl,c.key,{auth:{persistSession:false,storageKey:'ext-pesquisa'}});
-  const {data,error}=await extClients.pesquisa.from(c.tabelaMetas).select('*'); if(error) throw error; return data||[];
+  const {data,error}=c.rpcMetas?await extClients.pesquisa.rpc(c.rpcMetas):await extClients.pesquisa.from(c.tabelaMetas).select('*'); if(error) throw error; return data||[];
 }
 function pesqResumo(rows,metaQtd){
   const env=rows.reduce((s,r)=>s+qtdMat(r),0), resp=rows.filter(r=>r.status!=='pendente').reduce((s,r)=>s+qtdMat(r),0);
@@ -1045,7 +1045,7 @@ async function afterCadPes(){
         ${rows.slice(0,150).map(r=>`<tr>${c.rpc?`<td>${esc(r.tipo)}${r.numero?` <span class="mat">nº ${esc(r.numero)}</span>`:''}</td>`:''}<td>${esc(r[c.colMatricula]??'—')}${r.matriculas_adicionais?` <span class="mat">+${qtdMat(r)-1}</span>`:''}${r.nota_atendimento!=null?` <span class="mat">· ${r.nota_atendimento}★</span>`:''}</td><td>${fdt(r[c.colData])}</td>${c.colStatus?`<td>${esc(stCad(r[c.colStatus]))}</td>`:''}${S.gestao&&!execFoco()?`<td>${pessoa(r[c.colExecutivo])}</td>`:''}</tr>`).join('')||'<tr><td colspan="4" class="mat">Nenhuma atuação encontrada.</td></tr>'}
         </tbody></table></div>`;
     }catch(e){ if(box) box.innerHTML = /cv_|function|permission|schema cache/i.test(e.message||'')
-        ? `<div class="msg err">A leitura ainda não foi liberada.${S.gestao?' Rode o arquivo <b>5_rodar_no_supabase_da_ATUALIZACAO_CADASTRAL.sql</b> no Supabase da Atualização Cadastral.':' A gestão está liberando o acesso.'}<br><span class="mat">${esc(e.message)}</span></div>`
+        ? `<div class="msg err">A leitura ainda não foi liberada.${S.gestao?' Rode o arquivo '+(k==='pesquisa'?'<b>6_…fechar_pesquisa.sql</b>':'<b>5_rodar_no_supabase_da_ATUALIZACAO_CADASTRAL.sql</b>')+' no Supabase da Atualização Cadastral.':' A gestão está liberando o acesso.'}<br><span class="mat">${esc(e.message)}</span></div>`
         : `<div class="msg err">Não foi possível ler a plataforma: ${esc(e.message)}</div>`; }
   }
 }
