@@ -264,16 +264,16 @@
   <div class="login-card">
     <div class="eyebrow"><span class="dot"></span>Águas do Rio · Grandes Clientes</div>
     <h1>Carteira Viva</h1>
-    <p class="sub" id="lsub">Entre com seu e-mail e senha de acesso.</p>
+    <p class="sub" id="lsub">Entre com seu e-mail e senha de acesso.<br>Ex.: diogo.garcia@gestaocarteira.local</p>
     <div id="lmsg"></div>
     <form id="lform" onsubmit="return doLogin(event)">
-      <div class="fld"><label>E-mail</label><input id="lemail" type="email" autocomplete="username" placeholder="seu.nome@aguasdorio.com.br" required></div>
+      <div class="fld"><label>E-mail</label><input id="lemail" type="email" autocomplete="username" placeholder="nome.sobrenome@gestaocarteira.local" required></div>
       <div class="fld"><label id="lpassLbl">Senha</label><input id="lpass" type="password" autocomplete="current-password" placeholder="Sua senha" required minlength="6"></div>
       <div class="fld hidden" id="lpass2W"><label>Confirme a senha</label><input id="lpass2" type="password" autocomplete="new-password" minlength="6"></div>
       <button class="btn full" id="lbtn" type="submit">Entrar</button>
     </form>
     <div style="display:flex;justify-content:space-between;margin-top:14px">
-      <button class="link" id="ltoggle" onclick="toggleSignup()">Primeiro acesso? Criar senha</button>
+      <span class="mat">Primeiro acesso: use a senha inicial que a gestão passou.</span>
       <button class="link" onclick="forgot()">Esqueci a senha</button>
     </div>
   </div>
@@ -420,11 +420,25 @@ async function doLogin(ev){
   } finally { $('lbtn').disabled=false; }
   return false;
 }
-async function forgot(){
-  const email=$('lemail').value.trim();
-  if(!email){ $('lmsg').innerHTML='<div class="msg info">Digite seu e-mail acima e clique de novo em "Esqueci a senha".</div>'; return; }
-  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});
-  $('lmsg').innerHTML = error?`<div class="msg err">${esc(error.message)}</div>`:'<div class="msg ok">Enviamos um link para redefinir a senha.</div>';
+function forgot(){
+  $('lmsg').innerHTML='<div class="msg info">Peça para a gestão (Day ou Tayene) redefinir sua senha em Gestão › Usuários. Você recebe uma senha provisória e troca no próximo acesso.</div>';
+}
+function openTrocaSenha(obrig){
+  modal(`<div class="modal sm"><div class="mh"><div><h3>${obrig?'Crie sua senha':'Trocar senha'}</h3><p>${obrig?'Primeiro acesso: troque a senha provisória por uma só sua.':'Escolha uma nova senha (mín. 6 caracteres).'}</p></div>${obrig?'':'<button class="x" onclick="closeModal()">×</button>'}</div>
+  <div class="mb"><div class="fld"><label>Nova senha</label><input type="password" id="ns1" minlength="6" autocomplete="new-password"></div>
+  <div class="fld"><label>Confirme a nova senha</label><input type="password" id="ns2" minlength="6" autocomplete="new-password"></div><div id="nsMsg"></div></div>
+  <div class="mf">${obrig?'<button class="btn sec" onclick="logout()">Sair</button>':'<button class="btn sec" onclick="closeModal()">Cancelar</button>'}<button class="btn" id="nsBtn" onclick="saveTrocaSenha()">Salvar senha</button></div></div>`);
+  if(obrig){ const ov=document.querySelector('.ov'); ov.onclick=null; }
+}
+async function saveTrocaSenha(){
+  const a=$('ns1').value, b=$('ns2').value, m=t=>$('nsMsg').innerHTML=`<div class="msg err">${t}</div>`;
+  if(a.length<6) return m('A senha precisa ter pelo menos 6 caracteres.');
+  if(a!==b) return m('As senhas não conferem.');
+  if(a==='Carteira@2026') return m('Escolha uma senha diferente da provisória.');
+  $('nsBtn').disabled=true;
+  const {error}=await sb.auth.updateUser({password:a,data:{trocar_senha:false}});
+  if(error){ $('nsBtn').disabled=false; return m(esc(error.message)); }
+  S.trocarSenha=false; closeModal(); toast('Senha alterada!');
 }
 async function logout(){ await sb.auth.signOut(); location.href=location.href.split('#')[0]; }
 
@@ -446,12 +460,14 @@ async function start(){
   const {data:me,error}=await sb.from('usuarios').select('*').eq('email',S.user.email.toLowerCase()).maybeSingle();
   if(error||!me){ $('login').classList.remove('hidden'); $('lmsg').innerHTML='<div class="msg err">Seu usuário não está ativo na Carteira Viva. Fale com a gestão.</div>'; await sb.auth.signOut(); return; }
   S.me=me; S.gestao=me.papel==='gestao'; S.validaPlr=!!me.valida_plr;
+  if(S.user.user_metadata?.trocar_senha) S.trocarSenha=true;
   $('login').classList.add('hidden'); $('appRoot').classList.remove('hidden');
-  $('whoLine').textContent=(S.gestao?'Gestão · ':'')+me.nome+' · '+(me.email||'');
+  $('whoLine').innerHTML=esc((S.gestao?'Gestão · ':'')+me.nome+' · '+(me.email||''))+' · <button class="link" style="color:#BFE0F5" onclick="openTrocaSenha(false)">Trocar senha</button>';
   $('main').innerHTML='<div class="loading"><div class="spin"></div>Carregando sua carteira…</div>';
   await loadAll();
   const h=location.hash.slice(1); if(h) S.tab=h;
   render();
+  if(S.trocarSenha) openTrocaSenha(true);
 }
 async function loadAll(){
   const [acao,recup,just,plr,cargas]=await Promise.all([
@@ -660,7 +676,7 @@ function exportAcao(){
 /* modal util */
 function modal(html){ $('modalRoot').innerHTML=`<div class="ov" onclick="if(event.target===this)closeModal()">${html}</div>`; }
 function closeModal(){ $('modalRoot').innerHTML=''; }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !S.trocarSenha) closeModal(); });
 
 /* =====================================================================
    ACOMPANHAMENTO DE CARTEIRA
@@ -1291,31 +1307,62 @@ async function syncIntegracoes(){
 }
 
 /* ---------- usuários ---------- */
+const SENHA_INICIAL='Carteira@2026';
+function emailPadrao(nome){
+  const p=String(nome||'').normalize('NFD').replace(/[̀-ͯ]/g,'').trim().split(/\s+/).filter(Boolean);
+  if(!p.length) return '';
+  const n=p.length>1?`${p[0]}.${p[p.length-1]}`:p[0];
+  return n.toLowerCase().replace(/[^a-z.]/g,'')+'@gestaocarteira.local';
+}
+async function loadLogins(){
+  const {data,error}=await sb.rpc('fn_logins'); if(error){ toast('Não consegui ler os logins: '+error.message,true); return; }
+  S.logins=Object.fromEntries((data||[]).map(l=>[l.email,l])); if(S.tab==='gestao'&&S.gtab==='usuarios') $('main').innerHTML=viewGestao();
+}
 function usuariosHTML(){
-  const ex=execList();
-  return `<div class="msg info">O executivo só consegue criar a senha ("Primeiro acesso") depois que o e-mail dele estiver aqui. O campo <b>Executivo</b> precisa ser o nome exatamente como aparece nas bases.</div>
-  <div class="scroll"><table><thead><tr><th>Nome</th><th>Executivo (nas bases)</th><th>E-mail</th><th>Papel</th><th>Valida PLR</th><th>Ativo</th><th></th></tr></thead><tbody>
+  if(!S.logins){ S.logins={}; loadLogins(); }
+  const ex=execList().filter(x=>!['Carteira Público','Judicial'].includes(x));
+  const acesso=u=>{ const l=u.email&&S.logins[u.email.toLowerCase()];
+    if(!u.email) return '<span class="pill st-0">sem e-mail</span>';
+    if(!l) return '<span class="pill st-5">sem login</span>';
+    return `<span class="pill st-3">ativo</span><br><span class="mat">${l.ultimo_acesso?'último acesso '+fdt(l.ultimo_acesso):'nunca entrou'}</span>`; };
+  return `<div class="card"><h2>Logins da Carteira Viva</h2>
+    <p class="sub">Cada executivo entra com <b>nome.sobrenome@gestaocarteira.local</b> e vê só a própria carteira. A senha provisória é <b>${SENHA_INICIAL}</b> e a plataforma obriga a troca no primeiro acesso.
+    Se alguém esquecer a senha, clique em <b>Redefinir senha</b>: ela volta para a provisória e a pessoa troca de novo ao entrar.
+    O campo <b>Executivo</b> precisa ser o nome exatamente como aparece nas bases.</p></div>
+  <div class="scroll" style="margin-top:14px"><table><thead><tr><th>Nome</th><th>Executivo (nas bases)</th><th>E-mail de acesso</th><th>Papel</th><th>Valida PLR</th><th>Ativo</th><th>Acesso</th><th></th></tr></thead><tbody>
   ${S.usuarios.map(u=>`<tr>
-    <td><input class="sel" id="un_${u.id}" value="${esc(u.nome)}" style="width:170px"></td>
-    <td><input class="sel" id="ue_${u.id}" value="${esc(u.executivo||'')}" list="dlExec" style="width:180px"></td>
-    <td><input class="sel" id="um_${u.id}" type="email" value="${esc(u.email||'')}" placeholder="email@aguasdorio.com.br" style="width:240px"></td>
+    <td><input class="sel" id="un_${u.id}" value="${esc(u.nome)}" style="width:140px"></td>
+    <td><input class="sel" id="ue_${u.id}" value="${esc(u.executivo||'')}" list="dlExec" style="width:150px"></td>
+    <td><input class="sel" id="um_${u.id}" value="${esc(u.email||'')}" style="width:250px"></td>
     <td><select class="sel" id="up_${u.id}"><option value="executivo" ${u.papel==='executivo'?'selected':''}>Executivo</option><option value="gestao" ${u.papel==='gestao'?'selected':''}>Gestão</option></select></td>
     <td style="text-align:center"><input type="checkbox" id="uv_${u.id}" ${u.valida_plr?'checked':''}></td>
     <td style="text-align:center"><input type="checkbox" id="ua_${u.id}" ${u.ativo?'checked':''}></td>
-    <td><button class="btn sm" onclick="saveUser(${u.id})">Salvar</button></td></tr>`).join('')}
-  <tr><td><input class="sel" id="un_new" placeholder="Novo usuário" style="width:170px"></td><td><input class="sel" id="ue_new" list="dlExec" style="width:180px"></td>
-    <td><input class="sel" id="um_new" type="email" style="width:240px"></td><td><select class="sel" id="up_new"><option value="executivo">Executivo</option><option value="gestao">Gestão</option></select></td>
-    <td style="text-align:center"><input type="checkbox" id="uv_new"></td><td style="text-align:center"><input type="checkbox" id="ua_new" checked></td>
-    <td><button class="btn ok sm" onclick="saveUser('new')">Adicionar</button></td></tr>
+    <td>${acesso(u)}</td>
+    <td style="display:flex;gap:6px"><button class="btn sm" onclick="saveUser(${u.id})">Salvar</button>
+      ${u.email?`<button class="btn sec sm" onclick="criarLogin('${esc(u.email)}',${!!S.logins[u.email.toLowerCase()]})">${S.logins[u.email.toLowerCase()]?'Redefinir senha':'Criar acesso'}</button>`:''}</td></tr>`).join('')}
+  <tr><td><input class="sel" id="un_new" placeholder="Novo usuário" style="width:140px" oninput="if(!$('um_new').dataset.ed) $('um_new').value=emailPadrao(this.value)"></td>
+    <td><input class="sel" id="ue_new" list="dlExec" style="width:150px"></td>
+    <td><input class="sel" id="um_new" style="width:250px" placeholder="gerado pelo nome" oninput="this.dataset.ed=1"></td>
+    <td><select class="sel" id="up_new"><option value="executivo">Executivo</option><option value="gestao">Gestão</option></select></td>
+    <td style="text-align:center"><input type="checkbox" id="uv_new"></td><td style="text-align:center"><input type="checkbox" id="ua_new" checked></td><td></td>
+    <td><button class="btn ok sm" onclick="saveUser('new')">Adicionar e criar acesso</button></td></tr>
   </tbody></table></div><datalist id="dlExec">${ex.map(e=>`<option>${esc(e)}</option>`).join('')}</datalist>`;
+}
+async function criarLogin(email,existe){
+  if(existe&&!confirm(`Redefinir a senha de ${email} para a provisória (${SENHA_INICIAL})?`)) return;
+  const {data,error}=await sb.rpc('fn_criar_login',{p_email:email,p_senha:SENHA_INICIAL});
+  if(error) return toast(error.message,true);
+  toast(`${email}: ${data} · senha provisória ${SENHA_INICIAL}`); S.logins=null; render();
 }
 async function saveUser(id){
   const g=p=>$(p+'_'+id);
-  const rec={nome:g('un').value.trim(),executivo:g('ue').value.trim()||null,email:g('um').value.trim().toLowerCase()||null,papel:g('up').value,valida_plr:g('uv').checked,ativo:g('ua').checked};
+  const rec={nome:g('un').value.trim(),executivo:g('ue').value.trim()||null,email:(g('um').value.trim().toLowerCase()||emailPadrao(g('un').value))||null,papel:g('up').value,valida_plr:g('uv').checked,ativo:g('ua').checked};
   if(!rec.nome) return toast('Informe o nome.',true);
   const {error}= id==='new' ? await sb.from('usuarios').insert(rec) : await sb.from('usuarios').update(rec).eq('id',id);
   if(error) return toast(error.message,true);
-  toast('Usuário salvo'); await reload('usuarios'); render();
+  if(id==='new'&&rec.email){ const r=await sb.rpc('fn_criar_login',{p_email:rec.email,p_senha:SENHA_INICIAL}); if(r.error) toast(r.error.message,true); else toast(`Acesso criado: ${rec.email} · senha provisória ${SENHA_INICIAL}`); }
+  else toast('Usuário salvo');
+  await reload('usuarios'); S.logins=null; render();
 }
 
 /* =====================================================================
