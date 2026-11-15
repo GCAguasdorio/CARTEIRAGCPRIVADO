@@ -1111,7 +1111,7 @@ function viewPlr(){
   <div id="plrAcum"><div class="card"><div class="loading"><div class="spin"></div>Buscando Atualização Cadastral e Pesquisa…</div></div></div>
   <div class="card" style="padding-bottom:16px"><h2>Metas mensais</h2><p class="sub">Arrecadação e Consumo Estratégico, mês a mês</p></div>
   ${legend}${tb}
-  ${e?consumoExecHTML(e):(S.plrInd==='consumo'?consumoTimeHTML():'')}
+  ${!e&&S.plrInd==='consumo'?consumoTimeHTML():''}
   <div class="sec-h" style="margin-top:22px"><div><h2 style="font-size:18px">Justificativas de não atingimento</h2><p>Validadas e aprovadas por Tayene ou Day</p></div></div>
   ${J.length?`<div class="scroll"><table><thead><tr><th>Mês</th>${S.gestao&&!execFoco()?'<th>Executivo</th>':''}<th>Indicador</th><th>Motivo</th><th>Descrição</th><th>Status</th><th>Parecer</th></tr></thead><tbody>
     ${J.map(j=>`<tr><td>${compLbl(j.competencia)}</td>${S.gestao&&!execFoco()?`<td>${pessoa(j.executivo)}</td>`:''}<td>${IND[j.indicador]?.nome||j.indicador}</td><td>${esc(j.motivo)}</td><td class="wrap-c">${esc(j.descricao||'—')}</td>
