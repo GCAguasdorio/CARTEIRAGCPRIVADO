@@ -323,13 +323,17 @@ const SUPABASE_KEY = 'sb_publishable_NeyfQWPzFIPKXzxgvS2W-g_SFYSO4uT';
 const INTEGRACOES = {
   cadastral: {
     nome: 'Atualização Cadastral', link: 'https://aguas-do-rio.github.io/atualizacao-cadastral-gc/',
-    supabaseUrl: 'https://yidsjyfcuzytkejctqfp.supabase.co', key: 'sb_publishable_dJWDHA-YGrM3jIXgFBuk1w_ZxZSaHBQ', tabela: 'ordens_servico',
-    colExecutivo: 'aberto_por', colMatricula: 'matricula', colData: 'aberto_em', colStatus: 'status'
+    supabaseUrl: 'https://yidsjyfcuzytkejctqfp.supabase.co', key: 'sb_publishable_dJWDHA-YGrM3jIXgFBuk1w_ZxZSaHBQ',
+    // leitura pelas funções cv_atuacoes / cv_carteira (arquivo 5, rodado no Supabase da Atualização Cadastral)
+    rpc: 'cv_atuacoes', rpcCarteira: 'cv_carteira', tabela: 'cv_atuacoes',
+    colExecutivo: 'executivo', colMatricula: 'matricula', colData: 'data', colStatus: 'status'
   },
   pesquisa: {
     nome: 'Pesquisa de Satisfação', link: 'https://aguas-do-rio.github.io/Pesquisa-Satisfa-o-GC/',
-    supabaseUrl: '', key: '', tabela: '',
-    colExecutivo: 'executivo', colMatricula: 'matricula', colData: 'created_at', colStatus: 'status'
+    supabaseUrl: 'https://yidsjyfcuzytkejctqfp.supabase.co', key: 'sb_publishable_dJWDHA-YGrM3jIXgFBuk1w_ZxZSaHBQ', tabela: 'registros',
+    select: 'id,matricula,matriculas_adicionais,analista,tipo,data_envio,status,data_resposta,nota_atendimento',
+    tabelaMetas: 'metas_executivos',
+    colExecutivo: 'analista', colMatricula: 'matricula', colData: 'data_envio', colStatus: 'status'
   }
 };
 const PAINEL_TIME_LINK = '';   // link do Painel Time (opcional)
@@ -977,8 +981,31 @@ async function extFetch(k,{todos=false}={}){
   const c=INTEGRACOES[k]; if(!extOk(k)) return null;
   extClients[k] ||= supabase.createClient(c.supabaseUrl,c.key,{auth:{persistSession:false,storageKey:'ext-'+k}});
   const e=todos?'':execFoco();
-  return fetchAll(()=>{ let q=extClients[k].from(c.tabela).select('*').order(c.colData,{ascending:false}); if(e) q=q.eq(c.colExecutivo,e); return q; });
+  if(c.rpc) return fetchAll(()=>extClients[k].rpc(c.rpc,{p_executivo:e||null}));
+  return fetchAll(()=>{ let q=extClients[k].from(c.tabela).select(c.select||'*').order(c.colData,{ascending:false}); if(e) q=q.eq(c.colExecutivo,e); return q; });
 }
+async function extCarteira(k){
+  const c=INTEGRACOES[k]; if(!c.rpcCarteira) return null; const e=execFoco();
+  return fetchAll(()=>extClients[k].rpc(c.rpcCarteira,{p_executivo:e||null}));
+}
+/* Pesquisa: mesma conta da plataforma (cada matrícula adicional conta 1; meta ajustada = meta − impossibilidades validadas) */
+const TIPO_IMPOSS='Não foi possível realizar a pesquisa';
+const qtdMat = r => 1 + String(r.matriculas_adicionais||'').split(/[,\s]+/).filter(Boolean).length;
+async function extMetasPesq(){
+  const c=INTEGRACOES.pesquisa; if(!c.tabelaMetas) return [];
+  extClients.pesquisa ||= supabase.createClient(c.supabaseUrl,c.key,{auth:{persistSession:false,storageKey:'ext-pesquisa'}});
+  const {data,error}=await extClients.pesquisa.from(c.tabelaMetas).select('*'); if(error) throw error; return data||[];
+}
+function pesqResumo(rows,metaQtd){
+  const env=rows.reduce((s,r)=>s+qtdMat(r),0), resp=rows.filter(r=>r.status!=='pendente').reduce((s,r)=>s+qtdMat(r),0);
+  const val=rows.filter(r=>r.status==='validado'), comNota=val.filter(r=>r.nota_atendimento!=null);
+  const valNota=comNota.reduce((s,r)=>s+qtdMat(r),0), imp=val.filter(r=>r.tipo===TIPO_IMPOSS).reduce((s,r)=>s+qtdMat(r),0);
+  const metaAj=metaQtd!=null?Math.max(0,metaQtd-imp):null, nota=comNota.length?comNota.reduce((s,r)=>s+(+r.nota_atendimento),0)/comNota.length:null;
+  return {env,resp,valNota,imp,metaAj,nota,aguard:rows.filter(r=>r.status==='aguardando_validacao').reduce((s,r)=>s+qtdMat(r),0)};
+}
+const ST_CAD={pendente_tratamento:'Pendente',aguardando_execucao_os:'Aguard. OS',aguardando_validacao_justificativa:'Aguard. validação',cadastro_atualizado:'Atualizado',
+  aguardando_execucao:'Aguard. execução',executada:'Executada',nao_executada:'Não executada',aguardando_validacao:'Aguard. validação',pendente:'Pendente',validado:'Validado',rejeitado:'Rejeitado',aprovada:'Aprovada',reprovada:'Reprovada',rejeitada:'Rejeitada'};
+const stCad = v => ST_CAD[v] || (v?String(v).replace(/_/g,' '):'—');
 function viewCadPes(){
   return `<div class="sec-h"><div><h2>Atualização Cadastral & Pesquisa de Satisfação</h2><p>Acesse as plataformas e acompanhe o que você já atuou</p></div></div>
   <div class="grid2">${['cadastral','pesquisa'].map(k=>{ const c=INTEGRACOES[k];
@@ -991,18 +1018,35 @@ async function afterCadPes(){
   for(const k of ['cadastral','pesquisa']){
     if(!extOk(k)) continue; const c=INTEGRACOES[k], box=$('ext_'+k);
     try{
-      const rows=await extFetch(k); if(!box||S.tab!=='cadpes') return;
+      const rows=await extFetch(k); const cart=await extCarteira(k); if(!box||S.tab!=='cadpes') return;
+      let cartHTML='';
+      if(cart&&cart.length){ const n=cart.length, cnt=s=>cart.filter(r=>r.status_fluxo===s).length, at=cnt('cadastro_atualizado');
+        cartHTML=`<div class="kpis" style="margin:0 0 12px;grid-template-columns:repeat(3,1fr)">
+          <div class="k c3"><div class="l">Carteira atualizada</div><div class="v">${pct(at/n,0)}</div><div class="s">${int(at)} de ${int(n)} matrículas</div>${barra(at,n,'var(--leaf)')}</div>
+          <div class="k c4"><div class="l">Pendentes</div><div class="v">${int(cnt('pendente_tratamento'))}</div></div>
+          <div class="k c5"><div class="l">Aguard. OS / validação</div><div class="v">${int(cnt('aguardando_execucao_os')+cnt('aguardando_validacao_justificativa'))}</div><div class="s">${int(cnt('aguardando_execucao_os'))} OS · ${int(cnt('aguardando_validacao_justificativa'))} justif.</div></div></div>`; }
       const mes=nowComp(); const noMes=rows.filter(r=>String(r[c.colData]||'').slice(0,7)===mes);
       const porMes={}; rows.forEach(r=>{ const m=String(r[c.colData]||'').slice(0,7); if(m) porMes[m]=(porMes[m]||0)+1; });
       const meses=Object.keys(porMes).sort().slice(-6);
-      box.innerHTML=`<div class="kpis" style="margin-bottom:12px">
-          <div class="k c1"><div class="l">Total atuado</div><div class="v">${int(rows.length)}</div></div>
+      if(k==='pesquisa'){
+        let metas=[]; try{ metas=await extMetasPesq(); }catch(_){}
+        const e=execFoco(); const metaQtd=e?(metas.find(m=>m.analista===e)?.meta_quantidade??null):(metas.length?metas.reduce((s,m)=>s+(+m.meta_quantidade||0),0):null);
+        const R=pesqResumo(rows,metaQtd);
+        cartHTML=`<div class="kpis" style="margin:0 0 12px;grid-template-columns:repeat(3,1fr)">
+          <div class="k c3"><div class="l">Meta de pesquisas</div><div class="v">${R.metaAj!=null?pct(R.metaAj?R.valNota/R.metaAj:0,0):'—'}</div><div class="s">${int(R.valNota)} validadas com nota${R.metaAj!=null?` de ${int(R.metaAj)}`:''}${R.imp?` · meta ajustada (−${int(R.imp)} impossibilidades)`:''}</div>${R.metaAj?barra(R.valNota,R.metaAj,'var(--leaf)'):''}</div>
+          <div class="k c2"><div class="l">Enviadas / respondidas</div><div class="v">${int(R.env)}</div><div class="s">${int(R.resp)} respondidas · ${int(R.aguard)} aguard. validação</div></div>
+          <div class="k c5"><div class="l">Nota média</div><div class="v">${R.nota!=null?nf(R.nota,1)+' ★':'—'}</div><div class="s">das pesquisas validadas</div></div></div>`;
+      }
+      box.innerHTML=cartHTML+`<div class="kpis" style="margin:0 0 12px;grid-template-columns:repeat(2,1fr)">
+          <div class="k c1"><div class="l">${k==='pesquisa'?'Registros lançados':'Total atuado'}</div><div class="v">${int(rows.length)}</div></div>
           <div class="k c3"><div class="l">Em ${compLbl(mes)}</div><div class="v">${int(noMes.length)}</div></div></div>
         ${meses.length?`<div style="display:flex;gap:6px;align-items:flex-end;height:70px;margin-bottom:12px">${meses.map(m=>{const mx=Math.max(...meses.map(x=>porMes[x]));return `<div style="flex:1;text-align:center;font-size:11.5px;color:var(--text-faint)"><div style="height:${Math.max(4,porMes[m]/mx*48)}px;background:var(--water);border-radius:5px 5px 0 0"></div>${compLbl(m)}<br><b style="color:var(--text)">${porMes[m]}</b></div>`}).join('')}</div>`:''}
-        <div class="scroll" style="max-height:340px;overflow:auto"><table><thead><tr><th>Matrícula</th><th>Data</th>${c.colStatus?'<th>Status</th>':''}${S.gestao&&!execFoco()?'<th>Executivo</th>':''}</tr></thead><tbody>
-        ${rows.slice(0,150).map(r=>`<tr><td>${esc(r[c.colMatricula]??'—')}</td><td>${fdt(r[c.colData])}</td>${c.colStatus?`<td>${esc(r[c.colStatus]??'—')}</td>`:''}${S.gestao&&!execFoco()?`<td>${pessoa(r[c.colExecutivo])}</td>`:''}</tr>`).join('')||'<tr><td colspan="4" class="mat">Nenhuma atuação encontrada.</td></tr>'}
+        <div class="scroll" style="max-height:340px;overflow:auto"><table><thead><tr>${c.rpc?'<th>Tipo</th>':''}<th>Matrícula</th><th>Data</th>${c.colStatus?'<th>Status</th>':''}${S.gestao&&!execFoco()?'<th>Executivo</th>':''}</tr></thead><tbody>
+        ${rows.slice(0,150).map(r=>`<tr>${c.rpc?`<td>${esc(r.tipo)}${r.numero?` <span class="mat">nº ${esc(r.numero)}</span>`:''}</td>`:''}<td>${esc(r[c.colMatricula]??'—')}${r.matriculas_adicionais?` <span class="mat">+${qtdMat(r)-1}</span>`:''}${r.nota_atendimento!=null?` <span class="mat">· ${r.nota_atendimento}★</span>`:''}</td><td>${fdt(r[c.colData])}</td>${c.colStatus?`<td>${esc(stCad(r[c.colStatus]))}</td>`:''}${S.gestao&&!execFoco()?`<td>${pessoa(r[c.colExecutivo])}</td>`:''}</tr>`).join('')||'<tr><td colspan="4" class="mat">Nenhuma atuação encontrada.</td></tr>'}
         </tbody></table></div>`;
-    }catch(e){ if(box) box.innerHTML=`<div class="msg err">Não foi possível ler a plataforma: ${esc(e.message)}. Verifique se a tabela permite leitura com a chave pública.</div>`; }
+    }catch(e){ if(box) box.innerHTML = /cv_|function|permission|schema cache/i.test(e.message||'')
+        ? `<div class="msg err">A leitura ainda não foi liberada.${S.gestao?' Rode o arquivo <b>5_rodar_no_supabase_da_ATUALIZACAO_CADASTRAL.sql</b> no Supabase da Atualização Cadastral.':' A gestão está liberando o acesso.'}<br><span class="mat">${esc(e.message)}</span></div>`
+        : `<div class="msg err">Não foi possível ler a plataforma: ${esc(e.message)}</div>`; }
   }
 }
 
@@ -1246,7 +1290,7 @@ function cargasHTML(){
       <div class="fld"><select id="plrIndUp" class="sel">${Object.entries(IND).map(([k,v])=>`<option value="${k}" ${k==='consumo'?'selected':''}>${v.nome}</option>`).join('')}</select></div>
       ${dropBox('upPLR','📎 Anexar planilha PLR (.xlsx)','.xlsx,.xls,.csv','upPlanilhaPLR')}
       <button class="link" style="margin-top:8px" onclick="modeloPLR()">⬇ Baixar modelo</button></div>
-    <div class="card"><h3>5 · PLR Cadastral e Pesquisa</h3><p>Conta o que cada executivo atuou por mês nas plataformas integradas e grava como realizado. A meta mensal abaixo é usada onde ainda não houver meta.</p>
+    <div class="card"><h3>5 · PLR Cadastral e Pesquisa</h3><p>Grava como realizado do mês: na Cadastral, OS + justificativas abertas; na Pesquisa, matrículas validadas com nota (mesma conta da plataforma). A meta mensal abaixo é usada onde ainda não houver meta.</p>
       <div class="fgrid"><div class="fld"><label>Meta mensal cadastral</label><input id="mCad" type="number" min="0" placeholder="qtd"></div><div class="fld"><label>Meta mensal pesquisa</label><input id="mPes" type="number" min="0" placeholder="qtd"></div></div>
       <button class="btn sm" onclick="syncIntegracoes()" ${extOk('cadastral')||extOk('pesquisa')?'':'disabled title="Configure INTEGRACOES no HTML"'}>Sincronizar agora</button></div>
   </div>
@@ -1513,7 +1557,9 @@ async function syncIntegracoes(){
     for(const k of ['cadastral','pesquisa']){
       if(!extOk(k)) continue; prog('Lendo '+INTEGRACOES[k].nome+'…',.3);
       const c=INTEGRACOES[k], rows=await extFetch(k,{todos:true}), cnt={};
-      rows.forEach(r=>{ const e=r[c.colExecutivo], m=String(r[c.colData]||'').slice(0,7); if(e&&m) cnt[e+'|'+m]=(cnt[e+'|'+m]||0)+1; });
+      rows.forEach(r=>{ const e=r[c.colExecutivo], m=String(r[c.colData]||'').slice(0,7); if(!e||!m) return;
+        if(k==='pesquisa'){ if(r.status!=='validado'||r.nota_atendimento==null) return; cnt[e+'|'+m]=(cnt[e+'|'+m]||0)+qtdMat(r); }
+        else cnt[e+'|'+m]=(cnt[e+'|'+m]||0)+1; });
       for(const [key,n] of Object.entries(cnt)){ const [e,m]=key.split('|'); const old=plrRow(e,m,k);
         out.push({executivo:e,competencia:m,indicador:k,realizado:n,meta:old?.meta??metas[k],unidade:'qtd',fonte:INTEGRACOES[k].nome,atualizado_em:new Date().toISOString()}); }
     }
