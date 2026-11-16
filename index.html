@@ -310,6 +310,11 @@
   .hb .ht{ height:14px; background:#EEF5FB; border-radius:99px; overflow:hidden; } .hb .ht i{ display:block; height:100%; border-radius:99px; }
   .hb .hv{ font-size:12px; color:var(--text-mut); white-space:nowrap; } .hb .hv b{ color:var(--navy); font-size:13px; }
   .k.clk .s .lnk{ color:var(--water); font-weight:700; }
+  table.fix th:first-child, table.fix td:first-child{ position:sticky; left:0; background:var(--surface); z-index:2; box-shadow:1px 0 0 var(--border), 6px 0 8px -6px rgba(14,46,74,.18); }
+  table.fix th:first-child{ z-index:4; }
+  table.fix tbody tr:hover td:first-child{ background:#F4F9FD; }
+  .fc{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:270px; max-width:340px; }
+  .fci{ min-width:0; flex:1; } .fci .cli{ max-width:230px; }
 </style>
 </head>
 <body>
@@ -669,7 +674,7 @@ const acaoDe = id => doExec(S.acao).filter(r=>r.acao_id===id);
 const saldoDe = () => doExec(S.saldo||[]);
 const saldoMat = m => (S.saldoIdx||{})[m];
 function idxSaldo(){ S.saldoIdx=Object.fromEntries((S.saldo||[]).map(s=>[s.matricula,s])); }
-function selAcao(v){ S.acaoSel=v; S.f={q:'',origem:'',sit:'',status:'',motivo:'',perfil:'',base:'',fa:'',perfil3:'',k:''}; render(); }
+function selAcao(v){ S.acaoSel=v; S.f={q:'',origem:'',sit:[],status:[],motivo:'',perfil:[],base:[],fa:[],perfil3:[],k:''}; render(); }
 
 /* "Outras bases": atuação da matrícula nas demais bases */
 function outrasBases(m,atual){
@@ -692,7 +697,7 @@ function boxOutras(m,atual){
 /* ---------- barras laterais clicáveis ---------- */
 function barrasLaterais(lst,campo){
   const mx=Math.max(1,...lst.map(x=>x[1])), tot=lst.reduce((a,x)=>a+x[1],0);
-  return `<div class="hbars">${lst.map(([k,n,v])=>{ const on=S.f[campo]===k;
+  return `<div class="hbars">${lst.map(([k,n,v])=>{ const on=fon(campo,k);
     return `<button class="hb ${on?'on':''}" onclick="setF('${campo}','${esc(k)}')"><span class="hl" title="${esc(k)}">${esc(k)}</span>
       <span class="ht"><i style="width:${Math.max(2,n/mx*100).toFixed(1)}%;background:${k==='Não iniciado'||k==='Sem atuação'?AZ.escuro:on?AZ.forte:AZ.medio}"></i></span>
       <span class="hv"><b>${int(n)}</b> · ${pct(n/tot,0)}${v!=null?` · ${money(v)}`:''}</span></button>`; }).join('')}</div>`;
@@ -712,7 +717,8 @@ function kOk(r){ const k=S.f.k; if(!k) return true; const d=K_FILTROS[S.acaoSel]
 function kc(key,cls,inner){ const on=(S.f.k||'')===key;
   return `<div class="k ${cls} clk ${on&&key?'on':''}" role="button" tabindex="0" title="${key?'Clique para filtrar a tabela':'Clique para mostrar todas'}" onclick="setK('${key}')">${inner}</div>`; }
 function setK(k){ S.f.k = (k && S.f.k===k) ? '' : k; render(); const t=$('acaoTb'); if(t&&t.getBoundingClientRect().top>window.innerHeight*0.7) t.scrollIntoView({behavior:'smooth',block:'start'}); }
-function kAviso(){ const d=S.f.k&&K_FILTROS[S.acaoSel]?.[S.f.k]; return d?`<div class="kfiltro">Filtrando pelo card <b>${d[0]}</b> <button class="link" onclick="setK('')">limpar ✕</button></div>`:''; }
+function kAviso(){ const d=S.f.k&&K_FILTROS[S.acaoSel]?.[S.f.k], n=fAtivos(); if(!d&&!n) return '';
+  return `<div class="kfiltro">${d?`Card <b>${d[0]}</b>`:''}${d&&n?' · ':''}${n?`<b>${n}</b> filtro(s) selecionado(s) · clique em mais de uma opção para somar`:''} <button class="link" onclick="limparF()">limpar tudo ✕</button></div>`; }
 
 function acaoFiltrada(){
   const f=S.f, q=norm(f.q);
@@ -721,14 +727,20 @@ function acaoFiltrada(){
     (!q||norm(r.matricula).includes(q)||norm(r.cliente).includes(q))).sort((a,b)=>(+b.saldo_vencido||0)-(+a.saldo_vencido||0));
   return acaoDe(S.acaoSel).filter(r=> kOk(r) &&
     (!f.origem || r.origem===f.origem || (f.origem!=='TOP 100 + 2500' && r.origem==='TOP 100 + 2500')) &&
-    (!f.sit || r.sit_ligacao===f.sit) && (!f.status || r.status===f.status) && (!f.perfil || r.perfil_pagamento===f.perfil) &&
+    fin('sit',r.sit_ligacao) && fin('status',r.status) && fin('perfil',r.perfil_pagamento) &&
     (!f.motivo || (f.motivo==='__sem'?!r.status_atuacao:r.status_atuacao===f.motivo)) &&
-    (!f.base || (r.base_origem||'').trim()===f.base) && (!f.fa || (f.fa==='__sem'?!r.fatura_antecipada:r.fatura_antecipada===f.fa)) &&
-    (!f.perfil3 || perfilDe(r.matricula,r)===f.perfil3) &&
+    fin('base',(r.base_origem||'').trim()) && fin('fa',r.fatura_antecipada||'__sem') &&
+    fin('perfil3',perfilDe(r.matricula,r)||'') &&
     (!q || norm(r.matricula).includes(q) || norm(r.cliente).includes(q) || norm(r.bairro).includes(q)))
     .sort((a,b)=>S.acaoSel!==1?(+b.valor||0)-(+a.valor||0):0);
 }
-function setF(k,v){ S.f[k]=(S.f[k]===v?'':v); render(); }
+const F_MULTI=['sit','perfil','base','fa','perfil3','status'];
+function fArr(k){ let x=S.f[k]; if(!Array.isArray(x)) x=S.f[k]=(x?[x]:[]); return x; }
+function fon(k,v){ return fArr(k).includes(v); }
+function fin(k,val){ const a=fArr(k); return !a.length||a.includes(val); }
+function setF(k,v){ if(F_MULTI.includes(k)){ const a=fArr(k), i=a.indexOf(v); if(i>=0) a.splice(i,1); else a.push(v); } else S.f[k]=(S.f[k]===v?'':v); render(); }
+function limparF(){ F_MULTI.forEach(k=>S.f[k]=[]); S.f.motivo=''; S.f.k=''; render(); }
+function fAtivos(){ return F_MULTI.reduce((n,k)=>n+fArr(k).length,0)+(S.f.motivo?1:0); }
 function cardsAcoes(){
   const a1=acaoDe(1), a2=acaoDe(2), a3=acaoDe(3);
   const atu=a=>a.filter(r=>r.status!=='Não iniciado'||r.status_atuacao).length;
@@ -764,7 +776,7 @@ function viewAcao(){
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula, cliente ou bairro" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
     <div class="chips">${orig.map(([v,l])=>`<button class="chip ${S.f.origem===v?'on':''}" onclick="S.f.origem='${v}';render()">${l}</button>`).join('')}</div>
-    <div class="chips">${['Ativa','Cortada'].map(v=>`<button class="chip ${S.f.sit===v?'on':''}" onclick="setF('sit','${v}')">${v}</button>`).join('')}</div>
+    <div class="chips">${['Ativa','Cortada'].map(v=>`<button class="chip ${fon('sit',v)?'on':''}" onclick="setF('sit','${v}')">${v}</button>`).join('')}</div>
   </div>
   ${kAviso()}<div id="acaoTb">${acaoTable(rows)}</div>`;
 }
@@ -773,19 +785,18 @@ function afterAcao(){}
 function acaoTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=S.gestao&&!execFoco();
-  return `<div class="scroll"><table><thead><tr>
+  return `<div class="scroll"><table class="fix"><thead><tr>
     <th>Cliente / matrícula</th><th>Base</th>${ge?'<th>Executivo</th>':''}<th>Situação</th><th class="r">Saldo vencido</th><th class="r">Aging</th>
-    <th>Análise / plano</th><th>Última ação</th><th>Status</th><th>Outras bases</th><th></th></tr></thead><tbody>
+    <th>Análise / plano</th><th>Última ação</th><th>Status</th><th>Outras bases</th></tr></thead><tbody>
     ${rows.map(r=>`<tr>
-      <td><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula} · ${esc(r.bairro||'')}</span></td>
+      <td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula} · ${esc(r.bairro||'')}</span></div><button class="btn sm" onclick="openAtuar(${r.acao_id},${r.matricula})">Atuar</button></div></td>
       <td>${origemTag(r.origem)}</td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}
       <td>${sitHtml(r.sit_ligacao)}</td>
       <td class="r num">${money2(r.saldo_vencido)}</td><td class="r num">${r.aging!=null?int(r.aging)+' d':'—'}</td>
       <td class="wrap-c">${esc(r.analise||r.tratativa||'—')}${r.plano_acao?`<br><span class="mat">${esc(r.plano_acao)}</span>`:''}</td>
       <td class="wrap-c">${esc(r.acao_executivo||r.proposta||'—')}</td>
       <td>${stPill(r.status)}<br><span class="mat">${r.status_origem==='plataforma'?'auto · ':''}${fdate(r.atualizado_em)}</span></td>
-      <td class="wrap-c">${outrasBases(r.matricula,1)}</td>
-      <td><button class="btn sm" onclick="openAtuar(${r.acao_id},${r.matricula})">Atuar</button></td></tr>`).join('')}
+      <td class="wrap-c">${outrasBases(r.matricula,1)}</td></tr>`).join('')}
     </tbody></table></div>
     <p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.saldo_vencido||0),0))}</p>`;
 }
@@ -809,24 +820,23 @@ function viewCobranca(){
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula ou cliente" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
     <select class="sel" onchange="S.f.motivo=this.value;render()"><option value="">Status de atuação: todos</option><option value="__sem" ${S.f.motivo==='__sem'?'selected':''}>Sem atuação</option>${mots.map(m=>`<option ${S.f.motivo===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
-    <div class="chips">${perf.map(v=>`<button class="chip ${S.f.perfil===v?'on':''}" onclick="setF('perfil','${v}')">${esc(v)}</button>`).join('')}</div>
+    <div class="chips">${perf.map(v=>`<button class="chip ${fon('perfil',v)?'on':''}" onclick="setF('perfil','${v}')">${esc(v)}</button>`).join('')}</div>
   </div>
   <div class="toolbar" style="margin-top:0"><span class="mat" style="font-weight:700">Base:</span>
-    <div class="chips">${bases.map(b=>{ const n=all.filter(r=>(r.base_origem||'').trim()===b).length; return `<button class="chip ${S.f.base===b?'on':''}" onclick="setF('base','${esc(b)}')">${esc(b)} <span class="n">${n}</span></button>`; }).join('')}</div></div>
+    <div class="chips">${bases.map(b=>{ const n=all.filter(r=>(r.base_origem||'').trim()===b).length; return `<button class="chip ${fon('base',b)?'on':''}" onclick="setF('base','${esc(b)}')">${esc(b)} <span class="n">${n}</span></button>`; }).join('')}</div></div>
   ${kAviso()}<div id="acaoTb">${cobTable(rows)}</div>`;
 }
 function cobTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=S.gestao&&!execFoco();
-  return `<div class="scroll"><table><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Carteira</th><th>Vencimento</th><th class="r">Valor</th><th class="r">Aging</th><th>Perfil</th>
-    <th>Base</th><th>Status de atuação</th><th>Agendamento</th><th>Outras ações</th><th></th></tr></thead><tbody>
-    ${rows.map(r=>`<tr><td><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula}${r.sit_ligacao==='Cortada'?' · <span class="sit-c">Cortada</span>':''}</span></td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}
+  return `<div class="scroll"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Carteira</th><th>Vencimento</th><th class="r">Valor</th><th class="r">Aging</th><th>Perfil</th>
+    <th>Base</th><th>Status de atuação</th><th>Agendamento</th><th>Outras ações</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula}${r.sit_ligacao==='Cortada'?' · <span class="sit-c">Cortada</span>':''}</span></div><button class="btn sm" onclick="openAtuar(2,${r.matricula})">Atuar</button></div></td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}
       <td>${esc(r.carteira||'—')}</td><td>${fdate(r.vencimento)}</td><td class="r num">${money2(r.valor)}</td><td class="r num">${r.aging!=null?int(r.aging)+' d':'—'}</td>
       <td>${esc(r.perfil_pagamento||'—')}</td>
       <td>${esc((r.base_origem||'—').trim())}</td>
       <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}${!['Não iniciado','Em atuação','Pagamento identificado','Acordo aceito'].includes(r.status)?`<br>${stPill(r.status)}`:''}</td>
-      <td>${fdate(r.data_agendamento)}</td><td class="wrap-c">${outrasBases(r.matricula,2)}</td>
-      <td><button class="btn sm" onclick="openAtuar(2,${r.matricula})">Atuar</button></td></tr>`).join('')}
+      <td>${fdate(r.data_agendamento)}</td><td class="wrap-c">${outrasBases(r.matricula,2)}</td></tr>`).join('')}
   </tbody></table></div><p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}</p>`;
 }
 
@@ -848,24 +858,23 @@ function viewLacuna(){
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula ou cliente" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
     <select class="sel" onchange="S.f.motivo=this.value;render()"><option value="">Status: todos</option><option value="__sem" ${S.f.motivo==='__sem'?'selected':''}>Sem atuação</option>${sts.map(m=>`<option ${S.f.motivo===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
-    <div class="chips"><span class="mat" style="font-weight:700;align-self:center">Fatura antecipada:</span>${[['Sim','Sim'],['Não','Não'],['__sem','Não informado']].map(([v,l])=>`<button class="chip ${S.f.fa===v?'on':''}" onclick="setF('fa','${v}')">${l}</button>`).join('')}</div>
+    <div class="chips"><span class="mat" style="font-weight:700;align-self:center">Fatura antecipada:</span>${[['Sim','Sim'],['Não','Não'],['__sem','Não informado']].map(([v,l])=>`<button class="chip ${fon('fa',v)?'on':''}" onclick="setF('fa','${v}')">${l}</button>`).join('')}</div>
   </div>
-  ${perfis.length?`<div class="toolbar" style="margin-top:0"><span class="mat" style="font-weight:700">Perfil do cliente:</span><div class="chips">${perfis.map(v=>`<button class="chip ${S.f.perfil3===v?'on':''}" onclick="setF('perfil3','${esc(v)}')">${esc(v)}</button>`).join('')}</div></div>`:''}
+  ${perfis.length?`<div class="toolbar" style="margin-top:0"><span class="mat" style="font-weight:700">Perfil do cliente:</span><div class="chips">${perfis.map(v=>`<button class="chip ${fon('perfil3',v)?'on':''}" onclick="setF('perfil3','${esc(v)}')">${esc(v)}</button>`).join('')}</div></div>`:''}
   ${kAviso()}<div id="acaoTb">${lacTable(rows)}</div>`;
 }
 function lacTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=S.gestao&&!execFoco();
-  return `<div class="scroll"><table><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Carteira</th><th>Vencimento original</th><th class="r">Valor da fatura</th><th>Perfil do cliente</th>
-    <th>Fatura antecipada</th><th>Novo vencimento</th><th>Status</th><th>Outras ações</th><th></th></tr></thead><tbody>
-    ${rows.map(r=>`<tr><td><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula}${r.sit_ligacao==='Cortada'?' · <span class="sit-c">Cortada</span>':''}</span></td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}
+  return `<div class="scroll"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Carteira</th><th>Vencimento original</th><th class="r">Valor da fatura</th><th>Perfil do cliente</th>
+    <th>Fatura antecipada</th><th>Novo vencimento</th><th>Status</th><th>Outras ações</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula}${r.sit_ligacao==='Cortada'?' · <span class="sit-c">Cortada</span>':''}</span></div><button class="btn sm" onclick="openAtuar(3,${r.matricula})">Atuar</button></div></td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}
       <td>${esc(r.carteira||'—')}</td><td>${r.vencimento?fdate(r.vencimento):'<span class="mat">não informado</span>'}</td><td class="r num">${money2(r.valor)}</td>
       <td>${esc(perfilDe(r.matricula,r)||'—')}</td>
       <td>${r.fatura_antecipada==='Sim'?'<span class="pill st-3">Sim</span>':r.fatura_antecipada==='Não'?'<span class="pill st-4">Não</span>':'<span class="mat">—</span>'}</td>
       <td>${fdate(r.novo_vencimento)}</td>
       <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}</td>
-      <td class="wrap-c">${outrasBases(r.matricula,3)}</td>
-      <td><button class="btn sm" onclick="openAtuar(3,${r.matricula})">Atuar</button></td></tr>`).join('')}
+      <td class="wrap-c">${outrasBases(r.matricula,3)}</td></tr>`).join('')}
   </tbody></table></div><p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}</p>`;
 }
 
@@ -1352,19 +1361,21 @@ function listaCart(tipo,v,v2){
   else if(tipo==='cond'){ L=L.filter(r=>r.con&&r.con.condicional===v); tit=`Consumo: ${v}`; }
   else if(tipo==='p12'){ L=L.filter(r=>r.con&&/Prioridade [12]/.test(r.con.prioridade||'')); tit='Consumo · Prioridade 1 e 2'; }
   L.sort((a,b)=>(b.fat||0)-(a.fat||0)||a.matricula-b.matricula);
-  S.lc={rows:L,tit,q:'',lim:200}; modal(`<div class="modal lg"><div class="mh"><div><h3>${esc(tit)}</h3><p>${int(L.length)} matrícula(s) · ${compLbl(S.cart.comp)}${execFoco()?' · '+esc(execFoco()):''}</p></div><button class="x" onclick="closeModal()">×</button></div>
+  S.lc={rows:L,tit,q:'',lim:200,pr:[],tipo}; modal(`<div class="modal lg"><div class="mh"><div><h3>${esc(tit)}</h3><p>${int(L.length)} matrícula(s) · ${compLbl(S.cart.comp)}${execFoco()?' · '+esc(execFoco()):''}</p></div><button class="x" onclick="closeModal()">×</button></div>
     <div class="mb"><div class="toolbar" style="margin-top:0"><div class="search">${ICON_SEARCH}<input placeholder="Filtrar por matrícula ou cliente" oninput="S.lc.q=this.value;S.lc.lim=200;$('lcTb').innerHTML=lcTable()"></div>
+      ${tipo==='p12'||tipo==='cond'?`<div class="chips" id="lcPr">${['Prioridade 1','Prioridade 2','Prioridade 3'].filter(p=>L.some(r=>r.con&&r.con.prioridade===p)).map(p=>`<button class="chip" onclick="lcPr('${p}',this)">${p.replace('Prioridade ','P')} <span class="n">${L.filter(r=>r.con&&r.con.prioridade===p).length}</span></button>`).join('')}</div>`:''}
       <button class="btn sec sm" onclick="exportLista()">⬇ Exportar Excel</button></div><div id="lcTb">${lcTable()}</div></div></div>`);
 }
-function lcRows(){ const q=norm(S.lc.q); return q?S.lc.rows.filter(r=>norm(r.matricula).includes(q)||norm(r.cliente).includes(q)):S.lc.rows; }
+function lcPr(p,b){ const a=S.lc.pr, i=a.indexOf(p); if(i>=0) a.splice(i,1); else a.push(p); b.classList.toggle('on'); S.lc.lim=200; $('lcTb').innerHTML=lcTable(); }
+function lcRows(){ const q=norm(S.lc.q), pr=S.lc.pr||[]; return S.lc.rows.filter(r=>(!q||norm(r.matricula).includes(q)||norm(r.cliente).includes(q))&&(!pr.length||(r.con&&pr.includes(r.con.prioridade)))); }
 function lcTable(){
   const R=lcRows(); if(!R.length) return '<div class="card empty"><b>Nenhuma matrícula</b></div>';
   const ge=S.gestao&&!execFoco(), stP=s=>s?`<span class="pill ${s==='Pagou'?'st-3':s==='Vencido'?'st-4':'st-1'}">${s==='Pagou'?'Pago':esc(s)}</span>`:'<span class="mat">sem fatura</span>';
-  return `<div class="scroll" style="max-height:58vh"><table><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Situação</th><th>Agrupamento</th><th>Superintendência</th><th>Vencimento</th><th class="r">Faturamento</th><th>Status</th><th>Plano de atuação</th><th></th></tr></thead><tbody>
-  ${R.slice(0,S.lc.lim).map(r=>`<tr style="cursor:pointer" title="Clique para ver todas as atuações" onclick="closeModal();lupaAbrirTopo(${r.matricula})"><td><span class="cli">${esc(r.cliente||'—')}</span><span class="mat">${r.matricula}${r.perfil?' · '+esc(r.perfil):''}</span></td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}
+  return `<div class="scroll" style="max-height:58vh"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}${S.lc.tipo==='p12'||S.lc.tipo==='cond'?'<th>Prioridade</th>':''}<th>Situação</th><th>Agrupamento</th><th>Superintendência</th><th>Vencimento</th><th class="r">Faturamento</th><th>Status</th><th>Plano de atuação</th></tr></thead><tbody>
+  ${R.slice(0,S.lc.lim).map(r=>`<tr style="cursor:pointer" title="Clique para ver todas as atuações" onclick="closeModal();lupaAbrirTopo(${r.matricula})"><td><div class="fc"><div class="fci"><span class="cli">${esc(r.cliente||'—')}</span><span class="mat">${r.matricula}${r.perfil?' · '+esc(r.perfil):''}</span></div><button class="btn sec sm">Ver</button></div></td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}${S.lc.tipo==='p12'||S.lc.tipo==='cond'?`<td>${r.con?`<span class="pill nopt ${/1/.test(r.con.prioridade)?'st-4':/2/.test(r.con.prioridade)?'st-5':'st-0'}">${esc((r.con.prioridade||'').replace('Prioridade ','P'))}</span>`:'—'}</td>`:''}
     <td>${r.sit==='Cortada'?'<span class="sit-c">Cortada</span>':esc(r.sit)}</td><td>${esc(r.agr)}</td><td>${esc(r.sup)}</td><td>${fdate(r.venc)}</td><td class="r num">${r.fat!=null?money2(r.fat):'—'}</td><td>${stP(r.status)}</td>
     <td class="wrap-c">${emPlano(r.matricula)||S.recup.some(x=>x.matricula===r.matricula)?outrasBases(r.matricula,null):'<span class="mat">—</span>'}</td>
-    <td><button class="btn sec sm" onclick="closeModal();lupaAbrirTopo(${r.matricula})">Ver</button></td></tr>`).join('')}</tbody></table></div>
+</tr>`).join('')}</tbody></table></div>
   ${R.length>S.lc.lim?`<div class="more"><button class="btn sec sm" onclick="S.lc.lim+=300;$('lcTb').innerHTML=lcTable()">Mostrar mais (${int(R.length-S.lc.lim)} restantes)</button></div>`:''}
   <p class="mat" style="margin-top:8px">${int(R.length)} matrícula(s) · ${money2(R.reduce((s,r)=>s+(r.fat||0),0))} faturado</p>`;
 }
@@ -2156,7 +2167,7 @@ async function upProcx(file,wb){
 function baseRows(head,rows){
   const c=k=>colIdx(head,k), iM=c(A_MAT), iE=c(A_EXE);
   const ix={cliente:c(['cliente','nomcliente','nomedocliente','razaosocial','nome']),curva:c(['curvafinal','curva']),carteira:c(['carteira']),utilizacao:c(['utilizacao','subcategoria','segmento']),
-    sit_ligacao:c(['sitligacao','situacaoligacao','situacao']),bairro:c(['bairro','nombairro']),regiao:c(['regiao','diretoria','spe','superintendencia']),perfil:c(['perfildocliente','perfildepagamento','perfilcliente','perfilpagamento','perfildepagto','perfil']),
+    sit_ligacao:c(['sitligacao','situacaoligacao','situacao']),bairro:c(['bairro','nombairro']),regiao:c(['regiao','diretoria','spe','superintendencia']),perfil:c(['perfilcliente3meses','perfilcliente3mes','perfildocliente3meses','perfildocliente','perfilcliente','perfildepagamento','perfilpagamento','perfildepagto','perfil']),
     superintendencia:c(['superintendencia','superintendencias','superint','sup']),agrupamento:c(['agrupamento','agrupamentos','agrupamentocarteira','grupo'])};
   return rows.map(r=>{ const m=toMat(r[iM]), e=String(r[iE]??'').trim(); if(!m||!e||e==='#N/A') return null;
     const o={matricula:m,executivo:e}; for(const k in ix) o[k]=ix[k]>=0&&r[ix[k]]!=null?String(r[ix[k]]).trim():null; return o; }).filter(Boolean);
