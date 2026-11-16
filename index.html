@@ -276,6 +276,31 @@
   .loading{ display:flex; align-items:center; gap:10px; color:var(--text-mut); padding:30px; justify-content:center; }
   .spin{ width:18px; height:18px; border:3px solid var(--water-soft); border-top-color:var(--water); border-radius:50%; animation:sp 1s linear infinite; }
   @keyframes sp{ to{ transform:rotate(360deg); } }
+  .k.clk{ cursor:pointer; transition:transform .12s, box-shadow .12s, border-color .12s; }
+  .k.clk:hover{ transform:translateY(-2px); box-shadow:0 6px 18px rgba(14,46,74,.10); border-color:var(--water-line); }
+  .k.clk.on{ border-color:var(--water); box-shadow:0 0 0 2px var(--water) inset; background:var(--water-soft); }
+  .kfiltro{ margin:14px 0 -4px; font-size:12.5px; color:var(--text-mut); display:flex; align-items:center; gap:8px; }
+  .lupa{ margin:16px 0 4px; padding:16px 18px; }
+  .lupa-h{ position:relative; display:flex; align-items:center; }
+  .lupa-ic{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--water); display:flex; }
+  .lupa-ic svg{ width:20px; height:20px; }
+  .lupa-h input{ width:100%; font:600 16px var(--font-body,inherit); padding:14px 44px 14px 44px; border:1.5px solid var(--water-line); border-radius:14px; background:var(--surface); color:var(--navy); outline:none; }
+  .lupa-h input:focus{ border-color:var(--water); box-shadow:0 0 0 4px var(--water-soft); }
+  .lupa-h .x{ position:absolute; right:10px; background:none; border:0; font-size:22px; color:var(--text-faint); cursor:pointer; }
+  .lupa-sug{ display:flex; flex-direction:column; margin-top:8px; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .lupa-sug button{ text-align:left; background:var(--surface); border:0; border-bottom:1px solid var(--border); padding:9px 14px; cursor:pointer; font:inherit; font-size:13px; color:var(--navy); }
+  .lupa-sug button:last-child{ border-bottom:0; } .lupa-sug button:hover{ background:var(--water-soft); }
+  .lupa-cab{ display:flex; align-items:center; gap:12px; margin:16px 0 12px; } .lupa-cab b{ display:block; font-family:var(--font-display); color:var(--navy); font-size:15px; }
+  .lupa-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; }
+  .lupa-ac{ border:1px solid var(--border); border-left:4px solid var(--water-line); border-radius:12px; padding:12px 14px; background:var(--surface); display:flex; flex-direction:column; gap:8px; }
+  .lupa-ac.xbd1{ border-left-color:var(--navy); } .lupa-ac.xbd2{ border-left-color:var(--amber); } .lupa-ac.xbd3{ border-left-color:var(--water); } .lupa-ac.xbd4{ border-left-color:var(--leaf); }
+  .lupa-ac .lt{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-weight:800; font-size:13px; color:var(--navy); }
+  .lupa-ac .ld{ display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:12px; }
+  .lupa-ac .ld span{ display:block; color:var(--text-faint); font-size:11px; } .lupa-ac .ld b{ color:var(--navy); font-weight:700; }
+  .lupa-ac .lo{ font-size:12px; color:var(--text-mut); background:var(--bg,#F4F8FB); border-radius:8px; padding:6px 8px; margin:0; }
+  .lupa-ac .lf{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:auto; }
+  .lupa-mini{ display:flex; flex-wrap:wrap; gap:8px 18px; font-size:12.5px; color:var(--text-mut); margin-top:12px; }
+  .lupa-ht{ font-family:var(--font-display); font-size:14px; margin:16px 0 8px; color:var(--navy); }
 </style>
 </head>
 <body>
@@ -632,7 +657,7 @@ const acaoDe = id => doExec(S.acao).filter(r=>r.acao_id===id);
 const saldoDe = () => doExec(S.saldo||[]);
 const saldoMat = m => (S.saldoIdx||{})[m];
 function idxSaldo(){ S.saldoIdx=Object.fromEntries((S.saldo||[]).map(s=>[s.matricula,s])); }
-function selAcao(v){ S.acaoSel=v; S.f={q:'',origem:'',sit:'',status:'',motivo:'',perfil:'',base:'',fa:'',perfil3:''}; render(); }
+function selAcao(v){ S.acaoSel=v; S.f={q:'',origem:'',sit:'',status:'',motivo:'',perfil:'',base:'',fa:'',perfil3:'',k:''}; render(); }
 
 /* "Outras bases": atuação da matrícula nas demais bases */
 function outrasBases(m,atual){
@@ -652,12 +677,29 @@ function boxOutras(m,atual){
   </div>`;
 }
 
+/* ---------- cards (KPIs) que filtram a tabela ---------- */
+const HOJE=()=>new Date().toISOString().slice(0,10);
+const GANHOS1=['Recuperado','Pagamento identificado','Acordo aceito'];
+const K_FILTROS={
+  1:{atu:['Já atuadas',r=>r.status!=='Não iniciado'], ganho:['Recuperado / pago / acordo',r=>GANHOS1.includes(r.status)],
+     outra:['Também em outra ação',r=>S.acao.some(x=>x.acao_id!==1&&x.matricula===r.matricula)], cort:['Cortadas',r=>r.sit_ligacao==='Cortada']},
+  2:{com:['Com atuação',r=>!!r.status_atuacao], sem:['Sem atuação',r=>!r.status_atuacao],
+     agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()], pago:['Pagamento identificado',r=>r.status==='Pagamento identificado']},
+  3:{com:['Com atuação',r=>!!(r.status_atuacao||r.fatura_antecipada)], sem:['Sem atuação',r=>!(r.status_atuacao||r.fatura_antecipada)],
+     ant:['Faturas antecipadas',r=>r.fatura_antecipada==='Sim'], pago:['Pagas',r=>r.status_atuacao==='PAGO']}
+};
+function kOk(r){ const k=S.f.k; if(!k) return true; const d=K_FILTROS[S.acaoSel]?.[k]; return d?d[1](r):true; }
+function kc(key,cls,inner){ const on=(S.f.k||'')===key;
+  return `<div class="k ${cls} clk ${on&&key?'on':''}" role="button" tabindex="0" title="${key?'Clique para filtrar a tabela':'Clique para mostrar todas'}" onclick="setK('${key}')">${inner}</div>`; }
+function setK(k){ S.f.k = (k && S.f.k===k) ? '' : k; render(); const t=$('acaoTb'); if(t&&t.getBoundingClientRect().top>window.innerHeight*0.7) t.scrollIntoView({behavior:'smooth',block:'start'}); }
+function kAviso(){ const d=S.f.k&&K_FILTROS[S.acaoSel]?.[S.f.k]; return d?`<div class="kfiltro">Filtrando pelo card <b>${d[0]}</b> <button class="link" onclick="setK('')">limpar ✕</button></div>`:''; }
+
 function acaoFiltrada(){
   const f=S.f, q=norm(f.q);
   if(S.acaoSel==='saldo') return saldoDe().filter(r=>(!f.faixa||r.faixa===f.faixa)&&(!f.perfil||r.perfil===f.perfil)&&(!f.sit||r.situacao===f.sit)&&
     (!f.cross||(f.cross==='atuada'?emPlano(r.matricula):!emPlano(r.matricula)))&&
     (!q||norm(r.matricula).includes(q)||norm(r.cliente).includes(q))).sort((a,b)=>(+b.saldo_vencido||0)-(+a.saldo_vencido||0));
-  return acaoDe(S.acaoSel).filter(r=>
+  return acaoDe(S.acaoSel).filter(r=> kOk(r) &&
     (!f.origem || r.origem===f.origem || (f.origem!=='TOP 100 + 2500' && r.origem==='TOP 100 + 2500')) &&
     (!f.sit || r.sit_ligacao===f.sit) && (!f.status || r.status===f.status) && (!f.perfil || r.perfil_pagamento===f.perfil) &&
     (!f.motivo || (f.motivo==='__sem'?!r.status_atuacao:r.status_atuacao===f.motivo)) &&
@@ -692,11 +734,11 @@ function viewAcao(){
   const orig=[['','Todas'],['TOP 100 Saldo','TOP 100'],['2500 Economias','2500 Economias'],['TOP 100 + 2500','Nas duas bases']];
   return head+`
   <div class="kpis">
-    <div class="k hero-k"><div class="l">Matrículas na ação</div><div class="v">${int(all.length)}</div><div class="s">${int(all.filter(r=>r.sit_ligacao==='Cortada').length)} cortadas · ${int(all.filter(r=>r.origem==='TOP 100 + 2500').length)} nas duas bases</div></div>
-    <div class="k c2"><div class="l">Saldo vencido</div><div class="v">${money(sum(all))}</div><div class="s">soma das matrículas</div></div>
-    <div class="k c3"><div class="l">Já atuadas</div><div class="v">${int(all.length-cnt('Não iniciado').length)}</div><div class="s">${all.length?pct(1-cnt('Não iniciado').length/all.length,0):'—'} da ação</div></div>
-    <div class="k c1"><div class="l">Recuperado / pago / acordo</div><div class="v">${int(ganhos.length)}</div><div class="s">${money(sum(ganhos))} de saldo</div></div>
-    <div class="k c5"><div class="l">Também em outra ação</div><div class="v">${int(all.filter(r=>S.acao.some(x=>x.acao_id!==1&&x.matricula===r.matricula)).length)}</div><div class="s">Cobrança ou Lacuna</div></div>
+    ${kc('','hero-k',`<div class="l">Matrículas na ação</div><div class="v">${int(all.length)}</div><div class="s">${int(all.filter(r=>r.origem==='TOP 100 + 2500').length)} nas duas bases</div>`)}
+    ${kc('cort','c2',`<div class="l">Cortadas</div><div class="v">${int(all.filter(r=>r.sit_ligacao==='Cortada').length)}</div><div class="s">${money(sum(all.filter(r=>r.sit_ligacao==='Cortada')))} de ${money(sum(all))} vencido</div>`)}
+    ${kc('atu','c3',`<div class="l">Já atuadas</div><div class="v">${int(all.length-cnt('Não iniciado').length)}</div><div class="s">${all.length?pct(1-cnt('Não iniciado').length/all.length,0):'—'} da ação</div>`)}
+    ${kc('ganho','c1',`<div class="l">Recuperado / pago / acordo</div><div class="v">${int(ganhos.length)}</div><div class="s">${money(sum(ganhos))} de saldo</div>`)}
+    ${kc('outra','c5',`<div class="l">Também em outra ação</div><div class="v">${int(all.filter(r=>S.acao.some(x=>x.acao_id!==1&&x.matricula===r.matricula)).length)}</div><div class="s">Cobrança ou Lacuna</div>`)}
   </div>
   <div class="pipe">${pipe.filter(p=>cnt(p).length||p==='Não iniciado').map(p=>`<button class="${S.f.status===p?'on':''}" onclick="setF('status','${p}')"><span class="pl">${p}</span><span class="pv">${cnt(p).length}</span></button>`).join('')}</div>
   <div class="toolbar">
@@ -704,7 +746,7 @@ function viewAcao(){
     <div class="chips">${orig.map(([v,l])=>`<button class="chip ${S.f.origem===v?'on':''}" onclick="S.f.origem='${v}';render()">${l}</button>`).join('')}</div>
     <div class="chips">${['Ativa','Cortada'].map(v=>`<button class="chip ${S.f.sit===v?'on':''}" onclick="setF('sit','${v}')">${v}</button>`).join('')}</div>
   </div>
-  <div id="acaoTb">${acaoTable(rows)}</div>`;
+  ${kAviso()}<div id="acaoTb">${acaoTable(rows)}</div>`;
 }
 function refreshAcaoTable(){ $('acaoTb').innerHTML=S.acaoSel===2?cobTable(acaoFiltrada()):S.acaoSel===3?lacTable(acaoFiltrada()):acaoTable(acaoFiltrada()); }
 function afterAcao(){}
@@ -738,11 +780,11 @@ function viewCobranca(){
   const perf=[...new Set(all.map(r=>r.perfil_pagamento).filter(Boolean))].sort();
   const bases=[...new Set(all.map(r=>(r.base_origem||'').trim()).filter(Boolean))].sort();
   return `<div class="kpis">
-    <div class="k hero-k"><div class="l">Matrículas na cobrança</div><div class="v">${int(all.length)}</div><div class="s">${money(val(all))} em aberto</div></div>
-    <div class="k c3"><div class="l">Com atuação</div><div class="v">${int(comMot.length)}</div><div class="s">${pct(comMot.length/all.length,0)} · ${money(val(comMot))}</div>${barra(comMot.length,all.length,'var(--leaf)')}</div>
-    <div class="k c4"><div class="l">Sem atuação</div><div class="v">${int(all.length-comMot.length)}</div><div class="s">${money(val(all)-val(comMot))}</div></div>
-    <div class="k c5"><div class="l">Pagamento agendado</div><div class="v">${int(agend.length)}</div><div class="s">a partir de hoje · ${money(val(agend))}</div></div>
-    <div class="k c2"><div class="l">Pagamento identificado</div><div class="v">${int(pagos.length)}</div><div class="s">${money(val(pagos))}</div></div>
+    ${kc('','hero-k',`<div class="l">Matrículas na cobrança</div><div class="v">${int(all.length)}</div><div class="s">${money(val(all))} em aberto</div>`)}
+    ${kc('com','c3',`<div class="l">Com atuação</div><div class="v">${int(comMot.length)}</div><div class="s">${pct(comMot.length/all.length,0)} · ${money(val(comMot))}</div>${barra(comMot.length,all.length,'var(--leaf)')}`)}
+    ${kc('sem','c4',`<div class="l">Sem atuação</div><div class="v">${int(all.length-comMot.length)}</div><div class="s">${money(val(all)-val(comMot))}</div>`)}
+    ${kc('agend','c5',`<div class="l">Pagamento agendado</div><div class="v">${int(agend.length)}</div><div class="s">a partir de hoje · ${money(val(agend))}</div>`)}
+    ${kc('pago','c2',`<div class="l">Pagamento identificado</div><div class="v">${int(pagos.length)}</div><div class="s">${money(val(pagos))}</div>`)}
   </div>
 
   <div class="toolbar">
@@ -752,7 +794,7 @@ function viewCobranca(){
   </div>
   <div class="toolbar" style="margin-top:0"><span class="mat" style="font-weight:700">Base:</span>
     <div class="chips">${bases.map(b=>{ const n=all.filter(r=>(r.base_origem||'').trim()===b).length; return `<button class="chip ${S.f.base===b?'on':''}" onclick="setF('base','${esc(b)}')">${esc(b)} <span class="n">${n}</span></button>`; }).join('')}</div></div>
-  <div id="acaoTb">${cobTable(rows)}</div>`;
+  ${kAviso()}<div id="acaoTb">${cobTable(rows)}</div>`;
 }
 function cobTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
@@ -778,11 +820,11 @@ function viewLacuna(){
   const perfis=[...new Set(all.map(r=>perfilDe(r.matricula,r)).filter(Boolean))].sort();
   return `<div class="msg info" style="margin-top:18px">Clientes que pularam o vencimento no mês atual. A atuação é puxar o vencimento para dentro do mês: marque <b>Fatura antecipada</b> e informe o novo vencimento ajustado.</div>
   <div class="kpis">
-    <div class="k hero-k"><div class="l">Matrículas na lacuna</div><div class="v">${int(all.length)}</div><div class="s">${money(val(all))} em faturas</div></div>
-    <div class="k c3"><div class="l">Com atuação</div><div class="v">${int(com.length)}</div><div class="s">${pct(com.length/all.length,0)}</div>${barra(com.length,all.length,'var(--leaf)')}</div>
-    <div class="k c4"><div class="l">Sem atuação</div><div class="v">${int(all.length-com.length)}</div><div class="s">${money(val(all)-val(com))}</div></div>
-    <div class="k c2"><div class="l">Faturas antecipadas</div><div class="v">${int(ant.length)}</div><div class="s">${money(val(ant))} puxados para o mês</div></div>
-    <div class="k c5"><div class="l">Pagas</div><div class="v">${int(pg.length)}</div><div class="s">${money(val(pg))}</div></div>
+    ${kc('','hero-k',`<div class="l">Matrículas na lacuna</div><div class="v">${int(all.length)}</div><div class="s">${money(val(all))} em faturas</div>`)}
+    ${kc('com','c3',`<div class="l">Com atuação</div><div class="v">${int(com.length)}</div><div class="s">${pct(com.length/all.length,0)}</div>${barra(com.length,all.length,'var(--leaf)')}`)}
+    ${kc('sem','c4',`<div class="l">Sem atuação</div><div class="v">${int(all.length-com.length)}</div><div class="s">${money(val(all)-val(com))}</div>`)}
+    ${kc('ant','c2',`<div class="l">Faturas antecipadas</div><div class="v">${int(ant.length)}</div><div class="s">${money(val(ant))} puxados para o mês</div>`)}
+    ${kc('pago','c5',`<div class="l">Pagas</div><div class="v">${int(pg.length)}</div><div class="s">${money(val(pg))}</div>`)}
   </div>
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula ou cliente" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
@@ -790,7 +832,7 @@ function viewLacuna(){
     <div class="chips"><span class="mat" style="font-weight:700;align-self:center">Fatura antecipada:</span>${[['Sim','Sim'],['Não','Não'],['__sem','Não informado']].map(([v,l])=>`<button class="chip ${S.f.fa===v?'on':''}" onclick="setF('fa','${v}')">${l}</button>`).join('')}</div>
   </div>
   ${perfis.length?`<div class="toolbar" style="margin-top:0"><span class="mat" style="font-weight:700">Perfil do cliente:</span><div class="chips">${perfis.map(v=>`<button class="chip ${S.f.perfil3===v?'on':''}" onclick="setF('perfil3','${esc(v)}')">${esc(v)}</button>`).join('')}</div></div>`:''}
-  <div id="acaoTb">${lacTable(rows)}</div>`;
+  ${kAviso()}<div id="acaoTb">${lacTable(rows)}</div>`;
 }
 function lacTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
@@ -1004,11 +1046,13 @@ S.ctab='fat';
 function viewCarteira(){
   const sd=saldoDe();
   return `<div class="sec-h"><div><h2>Acompanhamento de Carteira</h2><p>Faturamento e vencimentos do mês · saldo vencido da carteira</p></div></div>
+  ${lupaHTML()}
   <div class="subtabs"><button class="${S.ctab==='fat'?'on':''}" onclick="S.ctab='fat';render()">Faturamento do mês</button>
     <button class="${S.ctab==='saldo'?'on':''}" onclick="S.ctab='saldo';render()">Saldo de Contas <span class="mat">(${int(sd.length)} · ${money(sd.reduce((s,r)=>s+(+r.saldo_vencido||0),0))})</span></button></div>
   ${S.ctab==='saldo'?viewSaldo():'<div id="cartBox"><div class="loading"><div class="spin"></div>Lendo a carteira…</div></div>'}`;
 }
 async function afterCarteira(){
+  if(S.lupa.m) lupaAbrir(S.lupa.m);
   if(S.ctab==='saldo') return;
   try{ await loadCarteira(); }catch(e){ $('cartBox').innerHTML=`<div class="msg err">${esc(e.message)}</div>`; return; }
   if(S.tab!=='carteira') return;
@@ -1051,12 +1095,7 @@ function carteiraHTML(){
     <div class="card"><h3>Variação de consumo <small>matrículas lidas</small></h3><div class="chart-box"><canvas id="chCond"></canvas></div></div>
     <div class="card"><h3>Arrecadação por data de pagamento <small>R$</small></h3><div class="chart-box"><canvas id="chArr"></canvas></div></div>
   </div>
-  <div class="sec-h" style="margin-top:8px"><div><h2 style="font-size:18px">🔍 Lupa da carteira</h2><p>Pesquise uma matrícula ou cliente e veja vencimento, pagamento e consumo</p></div></div>
-  <div class="toolbar">
-    <div class="search">${ICON_SEARCH}<input placeholder="Matrícula ou nome do cliente" value="${esc(S.cf.q)}" oninput="setCF('q',this.value)"></div>
-    <div class="chips" id="cfChips">${[['','Todos'],['A vencer','A vencer'],['Vencido','Vencidos'],['VCOM','Vencidos com plano'],['VSEM','Vencidos sem plano'],['Pagou','Pagos'],['P12','Consumo P1/P2']].map(([v,l])=>`<button class="chip ${S.cf.st===v?'on':''}" onclick="S.cf.st='${v}';document.querySelectorAll('#cfChips .chip').forEach(b=>b.classList.remove('on'));this.classList.add('on');setCF('st','${v}')">${l}</button>`).join('')}</div>
-  </div>
-  <div id="cartTb">${cartTable()}</div>`;
+  `;
 }
 function cartRows(){
   const g=cartAgg(), q=norm(S.cf.q), B=S.cart.base||{};
@@ -1119,6 +1158,80 @@ function drawCartCharts(){
   charts.a=new Chart($('chArr'),{type:'line',data:{labels:dp.map(fdate).map(x=>x.slice(0,5)),datasets:[{label:'Arrecadado',data:dp.map(d=>g.A.filter(a=>a.data_pgto===d).reduce((s,a)=>s+(+a.valor||0),0)),borderColor:'#1C7EBE',backgroundColor:'rgba(28,126,190,.12)',fill:true,tension:.3,pointRadius:3}]},
     options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>money2(c.raw)}}},scales:{x:{grid:{display:false}},y:yMoney}}});
 }
+
+/* ---------- Lupa: todas as atuações de uma matrícula ---------- */
+S.lupa={q:'',m:null};
+function lupaHTML(){
+  return `<div class="card lupa"><div class="lupa-h"><span class="lupa-ic">${ICON_SEARCH}</span>
+    <input id="lupaIn" inputmode="numeric" autocomplete="off" placeholder="🔍 Digite a matrícula para ver todas as atuações e status" value="${esc(S.lupa.q)}" oninput="lupaBusca(this.value)" onkeydown="if(event.key==='Enter')lupaEnter()">
+    ${S.lupa.q?`<button class="x" title="Limpar" onclick="S.lupa={q:'',m:null};render()">×</button>`:''}</div>
+    <div id="lupaRes">${S.lupa.m?'<div class="loading"><div class="spin"></div>Buscando…</div>':lupaSugestoes()}</div></div>`;
+}
+function lupaUniverso(){
+  const u=new Map(), add=(m,c,e)=>{ if(!m) return; const k=+m; const x=u.get(k)||{m:k,c:null,e:null}; x.c=x.c||c||null; x.e=x.e||e||null; u.set(k,x); };
+  S.acao.forEach(a=>add(a.matricula,a.cliente,a.executivo));
+  S.recup.forEach(r=>add(r.matricula,r.cliente,r.executivo));
+  (S.saldo||[]).forEach(r=>add(r.matricula,r.cliente,r.executivo));
+  Object.values(S.cart.base||{}).forEach(b=>add(b.matricula,b.cliente,b.executivo));
+  return u;
+}
+function lupaSugestoes(){
+  const q=S.lupa.q.trim(); if(q.length<3) return '';
+  const qn=norm(q), dig=q.replace(/\D/g,'');
+  const l=[...lupaUniverso().values()].filter(x=>(dig&&String(x.m).includes(dig))||(!/^\d+$/.test(q)&&norm(x.c).includes(qn))).slice(0,8);
+  if(!l.length) return `<p class="mat" style="margin-top:10px">Nenhuma matrícula encontrada${S.gestao?'':' na sua carteira'}.</p>`;
+  return `<div class="lupa-sug">${l.map(x=>`<button onclick="lupaAbrir(${x.m})"><b>${x.m}</b> <span>${esc(x.c||'')}</span>${S.gestao&&x.e?` <span class="mat">· ${esc(x.e)}</span>`:''}</button>`).join('')}</div>`;
+}
+let _lupaT=null;
+function lupaBusca(v){ S.lupa.q=v; S.lupa.m=null;
+  const dig=v.replace(/\D/g,''); clearTimeout(_lupaT);
+  if(dig.length>=6 && dig===v.trim() && lupaUniverso().has(+dig)){ _lupaT=setTimeout(()=>lupaAbrir(+dig),250); return; }
+  $('lupaRes').innerHTML=lupaSugestoes(); }
+function lupaEnter(){ const u=[...lupaUniverso().keys()], dig=S.lupa.q.replace(/\D/g,'');
+  const hit=u.includes(+dig)?+dig:(()=>{ const b=$('lupaRes').querySelector('.lupa-sug button'); return b?+b.querySelector('b').textContent:null; })();
+  if(hit) lupaAbrir(hit); else if(dig) lupaAbrir(+dig); }
+const NOME_ACAO_L={1:'Ação 1 · Recuperação + TOP 100',2:'Ação de Cobrança',3:'Lacuna de Vencimento'};
+const CAMPO_L={status:'Status',status_atuacao:'Status de atuação',data_agendamento:'Agendamento',fatura_antecipada:'Fatura antecipada',novo_vencimento:'Novo vencimento',
+  acao_executivo:'Ação do executivo',proposta:'Proposta',estagio:'Estágio',retorno_cliente:'Retorno do cliente',data_envio:'Data do envio',prazo_retorno:'Prazo de retorno',revalidacao:'Revalidação',observacao:'Observação'};
+async function lupaAbrir(m){
+  S.lupa.m=m; S.lupa.q=String(m); const inp=$('lupaIn'); if(inp) inp.value=m;
+  $('lupaRes').innerHTML='<div class="loading"><div class="spin"></div>Buscando…</div>';
+  let hist=[]; try{ const {data}=await sb.from('acao_historico').select('*').eq('matricula',m).order('em',{ascending:false}).limit(200); hist=data||[]; }catch(e){}
+  if(S.lupa.m!==m||!$('lupaRes')) return;
+  $('lupaRes').innerHTML=lupaDetalhe(m,hist);
+}
+function lupaDetalhe(m,hist){
+  const acs=S.acao.filter(a=>a.matricula===m).sort((a,b)=>a.acao_id-b.acao_id), recs=S.recup.filter(r=>r.matricula===m);
+  const sd=saldoMat(m), b=(S.cart.base||{})[m], f=(S.cart.fat||[]).filter(x=>x.matricula===m);
+  const any=acs[0]||recs[0]||sd||b;
+  if(!any) return `<div class="msg info" style="margin-top:12px">Matrícula <b>${m}</b> não encontrada${S.gestao?'':' na sua carteira'}.</div>`;
+  const cli=acs[0]?.cliente||recs[0]?.cliente||sd?.cliente||b?.cliente||'', ex=acs[0]?.executivo||b?.executivo||sd?.executivo||recs[0]?.executivo||'';
+  const det=a=>{ const d=[];
+    if(a.acao_id===1){ [['Ação do executivo',a.acao_executivo],['Proposta',a.proposta],['Estágio',a.estagio],['Retorno do cliente',a.retorno_cliente],['Revalidação',a.revalidacao]].forEach(([l,v])=>v&&d.push([l,v])); if(a.saldo_vencido!=null) d.push(['Saldo vencido',money2(a.saldo_vencido)]); }
+    else { d.push(['Status de atuação',a.status_atuacao||'Sem atuação']);
+      if(a.acao_id===2){ a.data_agendamento&&d.push(['Agendamento',fdate(a.data_agendamento)]); a.base_origem&&d.push(['Base',a.base_origem.trim()]); }
+      if(a.acao_id===3){ a.fatura_antecipada&&d.push(['Fatura antecipada',a.fatura_antecipada]); a.novo_vencimento&&d.push(['Novo vencimento',fdate(a.novo_vencimento)]); }
+      a.valor!=null&&d.push([a.acao_id===3?'Valor da fatura':'Valor',money2(a.valor)]); a.vencimento&&d.push(['Vencimento',fdate(a.vencimento)]); }
+    return d; };
+  const semAt=a=>a.acao_id===1?a.status==='Não iniciado':!(a.status_atuacao||a.fatura_antecipada);
+  return `<div class="lupa-cab">${ex?av(ex,40):''}<div><b>${esc(cli)}</b><span class="mat">Matrícula ${m}${ex?' · '+esc(ex):''}${perfilDe(m)?' · perfil '+esc(perfilDe(m)):''}${(b?.sit_ligacao||sd?.situacao)?' · '+esc(b?.sit_ligacao||sd?.situacao):''}</span></div></div>
+  <div class="lupa-grid">
+    ${acs.map(a=>`<div class="lupa-ac xbd${a.acao_id}"><div class="lt"><span>${NOME_ACAO_L[a.acao_id]||'Ação '+a.acao_id}</span>${semAt(a)?'<span class="pill st-0">Sem atuação</span>':stPill(a.status)}</div>
+      <div class="ld">${det(a).map(([l,v])=>`<div><span>${l}</span><b>${esc(v)}</b></div>`).join('')}</div>
+      ${a.observacao?`<p class="lo">${esc(a.observacao)}</p>`:''}
+      <div class="lf"><span class="mat">${a.atualizado_em?'Atualizado em '+fdt(a.atualizado_em)+(a.atualizado_por?' · '+esc(a.atualizado_por):''):'Sem atualização na plataforma'}</span>
+        <button class="btn sm" onclick="lupaAtuar(${a.acao_id},${m})">Atuar</button></div></div>`).join('')}
+    ${recs.map(r=>`<div class="lupa-ac xbd4"><div class="lt"><span>Recuperação de cortado</span>${stPill(r.status)}</div>
+      <div class="ld">${[['Pagamento',r.tipo_pagamento+(r.parcelas?` (${r.parcelas}x)`:'')],['Saldo integral',money2(r.saldo_integral)],['Saldo c/ desconto',money2(r.saldo_desconto)],['Religação',r.data_religacao?fdate(r.data_religacao):null],['Case de sucesso',r.caso_sucesso?'Sim':null]].filter(x=>x[1]).map(([l,v])=>`<div><span>${l}</span><b>${esc(v)}</b></div>`).join('')}</div>
+      ${r.resumo?`<p class="lo">${esc(r.resumo)}</p>`:''}${r.motivo_rejeicao?`<p class="lo">Motivo da rejeição: ${esc(r.motivo_rejeicao)}</p>`:''}
+      <div class="lf"><span class="mat">Solicitada em ${fdt(r.criado_em)}${r.decidido_em?' · decidida em '+fdt(r.decidido_em):''}</span></div></div>`).join('')}
+    ${!acs.length&&!recs.length?`<div class="lupa-ac"><div class="lt"><span>Plano de atuação</span><span class="pill st-0">Fora do plano</span></div><p class="lo">Esta matrícula não está em nenhuma ação do plano de atuação.</p></div>`:''}
+  </div>
+  ${(sd||f.length)?`<div class="lupa-mini">${f.map(x=>`<span>Faturamento ${compLbl(S.cart.comp)}: venc. ${fdate(x.vencimento)} · ${money2(x.faturamento)} · <b>${esc(x.status==='Pagou'?'Pago':x.status)}</b></span>`).join('')}${sd?`<span>Saldo de contas: <b>${money2(sd.saldo_vencido)}</b>${sd.faixa?' · '+esc(sd.faixa):''}</span>`:''}</div>`:''}
+  <h3 class="lupa-ht">Histórico de atuações</h3>
+  <div class="hist">${hist.length?hist.map(h=>`<div><b>${esc(NOME_ACAO[h.acao_id]||'')} · ${esc(CAMPO_L[h.campo]||h.campo.replace(/_/g,' '))}</b>: ${esc(h.de||'—')} → <b>${esc(h.para||'—')}</b><br><span>${fdt(h.em)} · ${esc(h.por||'')}${h.origem==='plataforma'?' (automático)':''}</span></div>`).join(''):'<span class="mat">Nenhuma alteração registrada desde o início da plataforma.</span>'}</div>`;
+}
+function lupaAtuar(id,m){ openAtuar(id,m); }
 </script>
 <script>
 /* =====================================================================
