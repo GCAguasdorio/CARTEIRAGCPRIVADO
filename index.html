@@ -218,6 +218,7 @@
   .ov{ position:fixed; inset:0; background:rgba(10,20,30,.55); display:flex; align-items:flex-start; justify-content:center; padding:40px 20px; overflow-y:auto; z-index:999; }
   .modal{ background:var(--surface); border-radius:18px; width:100%; max-width:720px; box-shadow:var(--shadow-lg); }
   .modal.sm{ max-width:500px; }
+  .modal.lg{ max-width:1180px; }
   .mh{ padding:24px 26px 0; display:flex; align-items:flex-start; gap:12px; }
   .mh h3{ font-family:var(--font-display); font-size:16px; font-weight:800; color:var(--navy); margin:0 0 4px; }
   .mh p{ font-size:12.5px; color:var(--text-mut); }
@@ -302,6 +303,13 @@
   .lupa-mini{ display:flex; flex-wrap:wrap; gap:8px 18px; font-size:12.5px; color:var(--text-mut); margin-top:12px; }
   .lupa-ht{ font-family:var(--font-display); font-size:14px; margin:16px 0 8px; color:var(--navy); }
   .bloco-t{ font-family:var(--font-display); font-size:15px; color:var(--navy); margin:22px 0 0; }
+  .hbars{ display:flex; flex-direction:column; gap:4px; }
+  .hb{ display:grid; grid-template-columns:minmax(150px,220px) 1fr minmax(170px,auto); gap:12px; align-items:center; background:none; border:0; border-radius:8px; padding:5px 8px; cursor:pointer; font:inherit; text-align:left; }
+  .hb:hover{ background:var(--water-soft); } .hb.on{ background:var(--water-soft); box-shadow:inset 0 0 0 1.5px var(--water); }
+  .hb .hl{ font-size:12.5px; font-weight:700; color:var(--navy); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .hb .ht{ height:14px; background:#EEF5FB; border-radius:99px; overflow:hidden; } .hb .ht i{ display:block; height:100%; border-radius:99px; }
+  .hb .hv{ font-size:12px; color:var(--text-mut); white-space:nowrap; } .hb .hv b{ color:var(--navy); font-size:13px; }
+  .k.clk .s .lnk{ color:var(--water); font-weight:700; }
 </style>
 </head>
 <body>
@@ -543,6 +551,7 @@ async function start(){
   const h=location.hash.slice(1); if(h) S.tab=h;
   render();
   if(S.trocarSenha) openTrocaSenha(true);
+  if(S.gestao && typeof syncPainelTime==='function') setTimeout(()=>syncPainelTime(true),1500);
 }
 async function loadAll(){
   const [acao,recup,just,plr,cargas,consumo]=await Promise.all([
@@ -557,6 +566,7 @@ async function loadAll(){
   if(S.gestao) S.usuarios=await fetchAll(()=>sb.from('usuarios').select('*').order('papel').order('nome'));
   try{ S.saldo=await fetchAll(()=>sb.from('saldo_contas').select('*').order('matricula')); }catch(_){ S.saldo=[]; }
   idxSaldo();
+  if(typeof carregaPerfilCart==='function') await carregaPerfilCart();
   try{ const fx=await fetchAll(()=>sb.from('fotos_executivos').select('executivo,foto')); S.fotos=Object.fromEntries(fx.map(f=>[f.executivo,f.foto])); }catch(_){ S.fotos={}; }
   S.loaded=true;
 }
@@ -652,7 +662,8 @@ const L_STATUS_LACUNA = ['PAGO','DÉBITO AUTOMÁTICO','PARCELADO','ISENTA','RESI
   'CONTATO SEM SUCESSO/VISITA','FATURA EM CONTESTAÇÃO','JÁ POSSUI FATURA PARA O MÊS VIGENTE','AGUARDANDO O RETORNO DO CLIENTE','FATURÃO',
   'EM CONTATO COM O CLIENTE, INFORMA QUE O PG JÁ ESTAVA PROGRAMADO'];
 const NOME_ACAO = {1:'Ação 1', 2:'Cobrança', 3:'Lacuna'};
-function perfilDe(m,r){ return (r&&r.perfil_cliente) || (S.cart.base&&S.cart.base[m]&&S.cart.base[m].perfil) || saldoMat(m)?.perfil || S.acao.find(x=>(x.acao_id===2||x.acao_id===1)&&x.matricula===m&&x.perfil_pagamento)?.perfil_pagamento || null; }
+async function carregaPerfilCart(){ try{ const d=await fetchAll(()=>sb.from('carteira_base').select('matricula,perfil').not('perfil','is',null).order('matricula')); S.perfilCart=Object.fromEntries(d.map(x=>[x.matricula,x.perfil])); }catch(_){ S.perfilCart={}; } }
+function perfilDe(m,r){ return (S.perfilCart||{})[m] || (S.cart.base&&S.cart.base[m]&&S.cart.base[m].perfil) || (r&&r.perfil_cliente) || saldoMat(m)?.perfil || S.acao.find(x=>(x.acao_id===2||x.acao_id===1)&&x.matricula===m&&x.perfil_pagamento)?.perfil_pagamento || null; }
 const sd0=null;
 const acaoDe = id => doExec(S.acao).filter(r=>r.acao_id===id);
 const saldoDe = () => doExec(S.saldo||[]);
@@ -678,6 +689,14 @@ function boxOutras(m,atual){
   </div>`;
 }
 
+/* ---------- barras laterais clicáveis ---------- */
+function barrasLaterais(lst,campo){
+  const mx=Math.max(1,...lst.map(x=>x[1])), tot=lst.reduce((a,x)=>a+x[1],0);
+  return `<div class="hbars">${lst.map(([k,n,v])=>{ const on=S.f[campo]===k;
+    return `<button class="hb ${on?'on':''}" onclick="setF('${campo}','${esc(k)}')"><span class="hl" title="${esc(k)}">${esc(k)}</span>
+      <span class="ht"><i style="width:${Math.max(2,n/mx*100).toFixed(1)}%;background:${k==='Não iniciado'||k==='Sem atuação'?AZ.escuro:on?AZ.forte:AZ.medio}"></i></span>
+      <span class="hv"><b>${int(n)}</b> · ${pct(n/tot,0)}${v!=null?` · ${money(v)}`:''}</span></button>`; }).join('')}</div>`;
+}
 /* ---------- cards (KPIs) que filtram a tabela ---------- */
 const HOJE=()=>new Date().toISOString().slice(0,10);
 const GANHOS1=['Recuperado','Pagamento identificado','Acordo aceito'];
@@ -685,7 +704,7 @@ const K_FILTROS={
   1:{atu:['Já atuadas',r=>r.status!=='Não iniciado'], ganho:['Recuperado / pago / acordo',r=>GANHOS1.includes(r.status)],
      outra:['Também em outra ação',r=>S.acao.some(x=>x.acao_id!==1&&x.matricula===r.matricula)], cort:['Cortadas',r=>r.sit_ligacao==='Cortada']},
   2:{com:['Com atuação',r=>!!r.status_atuacao], sem:['Sem atuação',r=>!r.status_atuacao],
-     agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()], pago:['Pagamento identificado',r=>r.status==='Pagamento identificado']},
+     agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()]},
   3:{com:['Com atuação',r=>!!(r.status_atuacao||r.fatura_antecipada)], sem:['Sem atuação',r=>!(r.status_atuacao||r.fatura_antecipada)],
      ant:['Faturas antecipadas',r=>r.fatura_antecipada==='Sim'], pago:['Pagas',r=>r.status_atuacao==='PAGO']}
 };
@@ -741,7 +760,7 @@ function viewAcao(){
     ${kc('ganho','c1',`<div class="l">Recuperado / pago / acordo</div><div class="v">${int(ganhos.length)}</div><div class="s">${money(sum(ganhos))} de saldo</div>`)}
     ${kc('outra','c5',`<div class="l">Também em outra ação</div><div class="v">${int(all.filter(r=>S.acao.some(x=>x.acao_id!==1&&x.matricula===r.matricula)).length)}</div><div class="s">Cobrança ou Lacuna</div>`)}
   </div>
-  <div class="pipe">${pipe.filter(p=>cnt(p).length||p==='Não iniciado').map(p=>`<button class="${S.f.status===p?'on':''}" onclick="setF('status','${p}')"><span class="pl">${p}</span><span class="pv">${cnt(p).length}</span></button>`).join('')}</div>
+  <div class="card" style="margin-top:18px"><h3>Status da Ação 1 <small>clique numa barra para filtrar a tabela</small></h3>${barrasLaterais(pipe.concat([...new Set(all.map(r=>r.status))].filter(x=>!pipe.includes(x))).map(p=>[p,cnt(p).length,sum(cnt(p))]).filter(x=>x[1]),'status')}</div>
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula, cliente ou bairro" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
     <div class="chips">${orig.map(([v,l])=>`<button class="chip ${S.f.origem===v?'on':''}" onclick="S.f.origem='${v}';render()">${l}</button>`).join('')}</div>
@@ -785,7 +804,6 @@ function viewCobranca(){
     ${kc('com','c3',`<div class="l">Com atuação</div><div class="v">${int(comMot.length)}</div><div class="s">${pct(comMot.length/all.length,0)} · ${money(val(comMot))}</div>${barra(comMot.length,all.length,'var(--leaf)')}`)}
     ${kc('sem','c4',`<div class="l">Sem atuação</div><div class="v">${int(all.length-comMot.length)}</div><div class="s">${money(val(all)-val(comMot))}</div>`)}
     ${kc('agend','c5',`<div class="l">Pagamento agendado</div><div class="v">${int(agend.length)}</div><div class="s">a partir de hoje · ${money(val(agend))}</div>`)}
-    ${kc('pago','c2',`<div class="l">Pagamento identificado</div><div class="v">${int(pagos.length)}</div><div class="s">${money(val(pagos))}</div>`)}
   </div>
 
   <div class="toolbar">
@@ -806,7 +824,7 @@ function cobTable(rows){
       <td>${esc(r.carteira||'—')}</td><td>${fdate(r.vencimento)}</td><td class="r num">${money2(r.valor)}</td><td class="r num">${r.aging!=null?int(r.aging)+' d':'—'}</td>
       <td>${esc(r.perfil_pagamento||'—')}</td>
       <td>${esc((r.base_origem||'—').trim())}</td>
-      <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}${r.status!=='Não iniciado'&&r.status!=='Em atuação'?`<br>${stPill(r.status)}`:''}</td>
+      <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}${!['Não iniciado','Em atuação','Pagamento identificado','Acordo aceito'].includes(r.status)?`<br>${stPill(r.status)}`:''}</td>
       <td>${fdate(r.data_agendamento)}</td><td class="wrap-c">${outrasBases(r.matricula,2)}</td>
       <td><button class="btn sm" onclick="openAtuar(2,${r.matricula})">Atuar</button></td></tr>`).join('')}
   </tbody></table></div><p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}</p>`;
@@ -1083,12 +1101,12 @@ function carteiraHTML(){
   ${carteiraGeralHTML()}
   <h3 class="bloco-t">Faturamento do mês</h3>
   <div class="kpis" style="margin-top:8px">
-    <div class="k hero-k"><div class="l">Matrículas faturadas</div><div class="v">${int(nMat)}</div><div class="s">${money(g.fatTot)} faturado</div></div>
-    <div class="k c3"><div class="l">Pagos</div><div class="v">${int(g.by.Pagou.n)}</div><div class="s">${money(g.by.Pagou.v)} · ${nMat?pct(g.by.Pagou.n/nMat,0):'—'}</div></div>
-    <div class="k c2"><div class="l">A vencer</div><div class="v">${int(g.by['A vencer'].n)}</div><div class="s">${money(g.by['A vencer'].v)}</div></div>
-    <div class="k c4"><div class="l">Vencidos</div><div class="v">${int(g.by.Vencido.n)}</div><div class="s">${money(g.by.Vencido.v)} · ${int(new Set(g.F.filter(f=>f.status==='Vencido'&&emPlano(f.matricula)).map(f=>f.matricula)).size)} com plano de atuação</div></div>
+    <div class="k hero-k clk" onclick="listaCart('fat','')"><div class="l">Matrículas faturadas</div><div class="v">${int(nMat)}</div><div class="s">${money(g.fatTot)} faturado</div></div>
+    <div class="k c3 clk" onclick="listaCart('fat','Pagou')"><div class="l">Pagos</div><div class="v">${int(g.by.Pagou.n)}</div><div class="s">${money(g.by.Pagou.v)} · ${nMat?pct(g.by.Pagou.n/nMat,0):'—'}</div></div>
+    <div class="k c2 clk" onclick="listaCart('fat','A vencer')"><div class="l">A vencer</div><div class="v">${int(g.by['A vencer'].n)}</div><div class="s">${money(g.by['A vencer'].v)}</div></div>
+    <div class="k c4 clk" onclick="listaCart('fat','Vencido')"><div class="l">Vencidos</div><div class="v">${int(g.by.Vencido.n)}</div><div class="s">${money(g.by.Vencido.v)} · <a class="lnk" onclick="event.stopPropagation();listaCart('vplano','com')">${int(new Set(g.F.filter(f=>f.status==='Vencido'&&emPlano(f.matricula)).map(f=>f.matricula)).size)} com plano</a> · <a class="lnk" onclick="event.stopPropagation();listaCart('vplano','sem')">${int(new Set(g.F.filter(f=>f.status==='Vencido'&&!emPlano(f.matricula)).map(f=>f.matricula)).size)} sem plano</a></div></div>
     <div class="k c1"><div class="l">Arrecadado no mês</div><div class="v">${money(g.arrTot)}</div><div class="s">${g.fatTot?pct(g.arrTot/g.fatTot):'—'} do faturado</div></div>
-    <div class="k c5"><div class="l">Consumo P1 + P2</div><div class="v">${int(p1+p2)}</div><div class="s">${p1} P1 · ${p2} P2 de ${int(g.C.length)} leituras</div></div>
+    <div class="k c5 clk" onclick="listaCart('p12','')"><div class="l">Consumo P1 + P2</div><div class="v">${int(p1+p2)}</div><div class="s">${p1} P1 · ${p2} P2 de ${int(g.C.length)} leituras</div></div>
   </div>
   <div class="grid3">
     <div class="card"><h3>Vencimentos <small>quantidade</small></h3><div class="chart-box"><canvas id="chSt"></canvas></div></div>
@@ -1145,18 +1163,18 @@ function chartBase(){ Chart.defaults.font.family="'Inter',system-ui,sans-serif";
 function drawCartCharts(){
   if(!$('chSt')) return; chartBase(); drawGeralCharts();
   const g=cartAgg();
-  charts.st=new Chart($('chSt'),{type:'doughnut',data:{labels:['Pagos','A vencer','Vencidos'],datasets:[{data:[g.by.Pagou.n,g.by['A vencer'].n,g.by.Vencido.n],backgroundColor:[AZ.medio,AZ.claro,AZ.escuro],borderWidth:2,borderColor:'#fff'}]},options:{maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'bottom'}}}});
+  charts.st=new Chart($('chSt'),{type:'doughnut',data:{labels:['Pagos','A vencer','Vencidos'],datasets:[{data:[g.by.Pagou.n,g.by['A vencer'].n,g.by.Vencido.n],backgroundColor:[AZ.medio,AZ.claro,AZ.escuro],borderWidth:2,borderColor:'#fff'}]},options:{...clk(i=>listaCart('fat',['Pagou','A vencer','Vencido'][i])),maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'bottom'}}}});
   const dias=[...new Set(g.F.map(f=>f.vencimento).filter(Boolean))].sort();
   const ser=st=>dias.map(d=>g.F.filter(f=>f.vencimento===d&&f.status===st).reduce((s,f)=>s+(+f.faturamento||0),0));
   const yMoney={ticks:{callback:v=>money(v)},grid:{color:'#EEF3F6'}};
   charts.v=new Chart($('chVenc'),{type:'bar',data:{labels:dias.map(fdate).map(x=>x.slice(0,5)),datasets:[
     {label:'Pagos',data:ser('Pagou'),backgroundColor:AZ.medio},{label:'A vencer',data:ser('A vencer'),backgroundColor:AZ.claro},{label:'Vencidos',data:ser('Vencido'),backgroundColor:AZ.escuro}]},
-    options:{maintainAspectRatio:false,layout:{padding:{top:46}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,...yMoney}},plugins:{rotulos:{fmt:moneyCurto,soTotal:true},legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+money2(c.raw)}}}}});
+    options:{...clk((i,d)=>listaCart('venc',dias[i],['Pagou','A vencer','Vencido'][d])),maintainAspectRatio:false,layout:{padding:{top:46}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,...yMoney}},plugins:{rotulos:{fmt:moneyCurto,soTotal:true},legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+money2(c.raw)}}}}});
   const conds=['Queda maior que 100%','Queda entre 60% e 100%','Queda menor que 60%','Fatura igual a anterior','Aumento menor que 60%','Aumento entre 60% e 100%','Aumento maior que 100%'];
   const outros=[...new Set(g.C.map(c=>c.condicional).filter(c=>c&&!conds.includes(c)))];
   const cl=[...conds,...outros].filter(c=>g.C.some(x=>x.condicional===c));
   charts.c=new Chart($('chCond'),{type:'bar',data:{labels:cl,datasets:[{data:cl.map(c=>g.C.filter(x=>x.condicional===c).length),backgroundColor:cl.map(c=>/maior que 100/.test(c)?AZ.escuro:/entre 60/.test(c)?AZ.forte:/igual/.test(c)?AZ.palido:AZ.medio),borderRadius:6}]},
-    options:{indexAxis:'y',maintainAspectRatio:false,layout:{padding:{right:36}},plugins:{legend:{display:false}},scales:{x:{grid:{color:'#EEF3F6'}},y:{grid:{display:false}}}}});
+    options:{...clk(i=>listaCart('cond',cl[i])),indexAxis:'y',maintainAspectRatio:false,layout:{padding:{right:36}},plugins:{legend:{display:false}},scales:{x:{grid:{color:'#EEF3F6'}},y:{grid:{display:false}}}}});
   const dp=[...new Set(g.A.map(a=>a.data_pgto).filter(Boolean))].sort();
   charts.a=new Chart($('chArr'),{type:'line',data:{labels:dp.map(fdate).map(x=>x.slice(0,5)),datasets:[{label:'Arrecadado',data:dp.map(d=>g.A.filter(a=>a.data_pgto===d).reduce((s,a)=>s+(+a.valor||0),0)),borderColor:'#1C7EBE',backgroundColor:'rgba(28,126,190,.12)',fill:true,tension:.3,pointRadius:3}]},
     options:{maintainAspectRatio:false,layout:{padding:{top:46}},plugins:{rotulos:{fmt:moneyCurto,vertical:true},legend:{display:false},tooltip:{callbacks:{label:c=>money2(c.raw)}}},scales:{x:{grid:{display:false}},y:yMoney}}});
@@ -1250,11 +1268,11 @@ function carteiraGeralHTML(){
   const n=k=>(g.sit.find(x=>x[0]===k)||[0,0])[1], at=n('Ativa'), co=n('Cortada'), out=g.B.length-at-co;
   const temSup=g.sup.some(x=>x[0]!=='Não informado'), temAgr=g.agr.some(x=>x[0]!=='Não informado');
   const h=k=>Math.max(170, k*30+30);
-  return `<h3 class="bloco-t">Carteira geral · ${compLbl(S.cart.comp)}</h3>
+  return `<h3 class="bloco-t">Carteira geral · ${compLbl(S.cart.comp)} <small class="mat" style="font-weight:500">· clique nos cards e gráficos para ver as matrículas</small></h3>
   <div class="kpis" style="margin-top:8px">
-    <div class="k hero-k"><div class="l">Total de matrículas</div><div class="v">${int(g.B.length)}</div><div class="s">na carteira do mês${execFoco()?' · '+esc(execFoco()):''}</div></div>
-    <div class="k c2"><div class="l">Ativas</div><div class="v">${int(at)}</div><div class="s">${pct(at/g.B.length,1)} da carteira</div></div>
-    <div class="k c1"><div class="l">Cortadas</div><div class="v">${int(co)}</div><div class="s">${pct(co/g.B.length,1)} da carteira</div></div>
+    <div class="k hero-k clk" onclick="listaCart('total','')"><div class="l">Total de matrículas</div><div class="v">${int(g.B.length)}</div><div class="s">na carteira do mês${execFoco()?' · '+esc(execFoco()):''}</div></div>
+    <div class="k c2 clk" onclick="listaCart('sit','Ativa')"><div class="l">Ativas</div><div class="v">${int(at)}</div><div class="s">${pct(at/g.B.length,1)} da carteira</div></div>
+    <div class="k c1 clk" onclick="listaCart('sit','Cortada')"><div class="l">Cortadas</div><div class="v">${int(co)}</div><div class="s">${pct(co/g.B.length,1)} da carteira</div></div>
     ${out?`<div class="k"><div class="l">Outras situações</div><div class="v">${int(out)}</div><div class="s">${g.sit.filter(x=>!['Ativa','Cortada'].includes(x[0])).map(x=>esc(x[0])+' '+int(x[1])).join(' · ')}</div></div>`:''}
     <div class="k c2"><div class="l">Superintendências</div><div class="v">${temSup?int(g.sup.filter(x=>x[0]!=='Não informado').length):'—'}</div><div class="s">${temSup?'na carteira':'sem a coluna na carteira'}</div></div>
     <div class="k c2"><div class="l">Agrupamentos</div><div class="v">${temAgr?int(g.agr.filter(x=>x[0]!=='Não informado').length):'—'}</div><div class="s">${temAgr?'na carteira':'sem a coluna na carteira'}</div></div>
@@ -1269,9 +1287,9 @@ function drawGeralCharts(){
   if(!$('chSit')) return; const g=cartGeral();
   const corSit=k=>k==='Ativa'?AZ.medio:k==='Cortada'?AZ.escuro:AZ.claro;
   charts.sit=new Chart($('chSit'),{type:'doughnut',data:{labels:g.sit.map(x=>x[0]),datasets:[{data:g.sit.map(x=>x[1]),backgroundColor:g.sit.map(x=>corSit(x[0])),borderWidth:2,borderColor:'#fff'}]},
-    options:{maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'bottom'}}}});
+    options:{...clk(i=>listaCart('sit',g.sit[i][0])),maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'bottom'}}}});
   const barH=(id,el,rows)=>{ if(!$(el)) return; charts[id]=new Chart($(el),{type:'bar',data:{labels:rows.map(x=>x[0]),datasets:[{data:rows.map(x=>x[1]),backgroundColor:rows.map((x,i)=>x[0]==='Não informado'?AZ.palido:AZ_SEQ[Math.min(i,3)]),borderRadius:6,maxBarThickness:24}]},
-    options:{indexAxis:'y',maintainAspectRatio:false,layout:{padding:{right:84}},plugins:{legend:{display:false},rotulos:{fmt:v=>int(v)+' · '+pct(v/g.B.length,0)},tooltip:{callbacks:{label:c=>int(c.raw)+' matrículas · '+pct(c.raw/g.B.length,1)}}},scales:{x:{grid:{color:'#EEF3F6'},ticks:{precision:0}},y:{grid:{display:false}}}}}); };
+    options:{...clk(i=>listaCart(id,rows[i][0])),indexAxis:'y',maintainAspectRatio:false,layout:{padding:{right:84}},plugins:{legend:{display:false},rotulos:{fmt:v=>int(v)+' · '+pct(v/g.B.length,0)},tooltip:{callbacks:{label:c=>int(c.raw)+' matrículas · '+pct(c.raw/g.B.length,1)}}},scales:{x:{grid:{color:'#EEF3F6'},ticks:{precision:0}},y:{grid:{display:false}}}}}); };
   barH('sup','chSup',g.sup); barH('agr','chAgr',g.agr);
 }
 
@@ -1309,6 +1327,54 @@ const ROTULOS={id:'rotulos',
   }};
 Chart.register(ROTULOS);
 Chart.defaults.plugins.rotulos={};
+
+/* ---------- painel interativo: lista de matrículas da carteira ---------- */
+function clk(fn){ return {onClick:(e,els)=>{ if(els&&els.length) fn(els[0].index,els[0].datasetIndex); }, onHover:(e,els)=>{ const t=e.native&&e.native.target; if(t) t.style.cursor=els&&els.length?'pointer':'default'; }}; }
+S.lc={rows:[],tit:'',q:'',lim:200};
+function linhasCart(){
+  const g=cartAgg(), B=S.cart.base||{}, fat={};
+  g.F.forEach(f=>{ const x=fat[f.matricula]||(fat[f.matricula]={matricula:f.matricula,executivo:f.executivo,fat:0,venc:null,status:null,itens:[]}); x.fat+=+f.faturamento||0; x.itens.push(f);
+    if(!x.status||({Vencido:0,'A vencer':1,Pagou:2}[f.status]??3)<({Vencido:0,'A vencer':1,Pagou:2}[x.status]??3)){ x.status=f.status; x.venc=f.vencimento; } });
+  const ms=new Set([...Object.keys(B),...Object.keys(fat)].map(Number));
+  return [...ms].map(m=>{ const b=B[m]||{}, f=fat[m]; return {matricula:m,cliente:b.cliente||'',executivo:b.executivo||f?.executivo||'',sit:sitGrupo(b.sit_ligacao),sup:(b.superintendencia||b.regiao||'').trim()||'Não informado',agr:(b.agrupamento||'').trim()||'Não informado',
+    perfil:perfilDe(m)||'',fat:f?f.fat:null,status:f?.status||null,venc:f?.venc||null,itens:f?f.itens:[],pago:g.pagoMat[m]||0,con:g.conMat[m],naBase:!!B[m]}; });
+}
+function listaCart(tipo,v,v2){
+  let L=linhasCart(), tit='';
+  const stLbl={Pagou:'Pagos','A vencer':'A vencer',Vencido:'Vencidos'};
+  if(tipo==='total'){ L=L.filter(r=>r.naBase); tit='Todas as matrículas da carteira'; }
+  else if(tipo==='sit'){ L=L.filter(r=>r.naBase&&r.sit===v); tit=`Situação: ${v}`; }
+  else if(tipo==='sup'){ L=L.filter(r=>r.naBase&&r.sup===v); tit=`Superintendência: ${v}`; }
+  else if(tipo==='agr'){ L=L.filter(r=>r.naBase&&r.agr===v); tit=`Agrupamento: ${v}`; }
+  else if(tipo==='fat'){ L=L.filter(r=>r.status&&(!v||r.itens.some(f=>f.status===v))); tit=v?`Faturamento do mês · ${stLbl[v]}`:'Matrículas faturadas no mês'; }
+  else if(tipo==='vplano'){ L=L.filter(r=>r.itens.some(f=>f.status==='Vencido')&&(v==='com'?emPlano(r.matricula):!emPlano(r.matricula))); tit=`Vencidos ${v} plano de atuação`; }
+  else if(tipo==='venc'){ L=L.filter(r=>r.itens.some(f=>f.vencimento===v&&(!v2||f.status===v2))); tit=`Vencimento ${fdate(v)}${v2?' · '+stLbl[v2]:''}`; }
+  else if(tipo==='cond'){ L=L.filter(r=>r.con&&r.con.condicional===v); tit=`Consumo: ${v}`; }
+  else if(tipo==='p12'){ L=L.filter(r=>r.con&&/Prioridade [12]/.test(r.con.prioridade||'')); tit='Consumo · Prioridade 1 e 2'; }
+  L.sort((a,b)=>(b.fat||0)-(a.fat||0)||a.matricula-b.matricula);
+  S.lc={rows:L,tit,q:'',lim:200}; modal(`<div class="modal lg"><div class="mh"><div><h3>${esc(tit)}</h3><p>${int(L.length)} matrícula(s) · ${compLbl(S.cart.comp)}${execFoco()?' · '+esc(execFoco()):''}</p></div><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mb"><div class="toolbar" style="margin-top:0"><div class="search">${ICON_SEARCH}<input placeholder="Filtrar por matrícula ou cliente" oninput="S.lc.q=this.value;S.lc.lim=200;$('lcTb').innerHTML=lcTable()"></div>
+      <button class="btn sec sm" onclick="exportLista()">⬇ Exportar Excel</button></div><div id="lcTb">${lcTable()}</div></div></div>`);
+}
+function lcRows(){ const q=norm(S.lc.q); return q?S.lc.rows.filter(r=>norm(r.matricula).includes(q)||norm(r.cliente).includes(q)):S.lc.rows; }
+function lcTable(){
+  const R=lcRows(); if(!R.length) return '<div class="card empty"><b>Nenhuma matrícula</b></div>';
+  const ge=S.gestao&&!execFoco(), stP=s=>s?`<span class="pill ${s==='Pagou'?'st-3':s==='Vencido'?'st-4':'st-1'}">${s==='Pagou'?'Pago':esc(s)}</span>`:'<span class="mat">sem fatura</span>';
+  return `<div class="scroll" style="max-height:58vh"><table><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Situação</th><th>Agrupamento</th><th>Superintendência</th><th>Vencimento</th><th class="r">Faturamento</th><th>Status</th><th>Plano de atuação</th><th></th></tr></thead><tbody>
+  ${R.slice(0,S.lc.lim).map(r=>`<tr style="cursor:pointer" title="Clique para ver todas as atuações" onclick="closeModal();lupaAbrirTopo(${r.matricula})"><td><span class="cli">${esc(r.cliente||'—')}</span><span class="mat">${r.matricula}${r.perfil?' · '+esc(r.perfil):''}</span></td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}
+    <td>${r.sit==='Cortada'?'<span class="sit-c">Cortada</span>':esc(r.sit)}</td><td>${esc(r.agr)}</td><td>${esc(r.sup)}</td><td>${fdate(r.venc)}</td><td class="r num">${r.fat!=null?money2(r.fat):'—'}</td><td>${stP(r.status)}</td>
+    <td class="wrap-c">${emPlano(r.matricula)||S.recup.some(x=>x.matricula===r.matricula)?outrasBases(r.matricula,null):'<span class="mat">—</span>'}</td>
+    <td><button class="btn sec sm" onclick="closeModal();lupaAbrirTopo(${r.matricula})">Ver</button></td></tr>`).join('')}</tbody></table></div>
+  ${R.length>S.lc.lim?`<div class="more"><button class="btn sec sm" onclick="S.lc.lim+=300;$('lcTb').innerHTML=lcTable()">Mostrar mais (${int(R.length-S.lc.lim)} restantes)</button></div>`:''}
+  <p class="mat" style="margin-top:8px">${int(R.length)} matrícula(s) · ${money2(R.reduce((s,r)=>s+(r.fat||0),0))} faturado</p>`;
+}
+function exportLista(){
+  const R=lcRows().map(r=>({Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Situação:r.sit,Agrupamento:r.agr,Superintendência:r.sup,Perfil:r.perfil,Vencimento:r.venc?fdate(r.venc):'',Faturamento:r.fat,Status:r.status==='Pagou'?'Pago':(r.status||''),'Pago no mês':r.pago||null,
+    'Plano de atuação':S.acao.filter(a=>a.matricula===r.matricula).map(a=>NOME_ACAO[a.acao_id]+': '+(a.acao_id===1?a.status:(a.status_atuacao||'sem atuação'))).join(' | ')}));
+  const ws=XLSX.utils.json_to_sheet(R), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Matrículas');
+  XLSX.writeFile(wb,`carteira_${norm(S.lc.tit).slice(0,40)}_${S.cart.comp}.xlsx`);
+}
+function lupaAbrirTopo(m){ const el=$('lupaIn'); if(el) el.closest('.lupa').scrollIntoView({behavior:'smooth',block:'start'}); lupaAbrir(m); }
 </script>
 <script>
 /* =====================================================================
@@ -1915,7 +1981,12 @@ function cargasHTML(){
       ${dropBox('upSaldo','📎 Anexar Saldo de Contas (.xlsx)','.xlsx,.xls','upSaldoContas')}
       <p class="mat" style="margin-top:8px">${ultCarga('saldo_contas')}</p></div>
     <div class="card"><h3>3 · PLR Arrecadação · Painel Time</h3><p>Anexe o arquivo <b>Painel Time.html</b> (painel da Carol). A plataforma lê a meta PLR de 95% por executivo e mês e inclui as fotos de executivos novos.</p>
-      ${dropBox('upPT','📎 Anexar Painel Time (.html)','.html,.htm','upPainelTime')}</div>
+      ${dropBox('upPT','📎 Anexar Painel Time (.html)','.html,.htm','upPainelTime')}
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <p style="margin-bottom:8px"><b>Atualização automática</b> · lê os dados que a Carol salva no Painel Time (GitHub) sempre que alguém da gestão abre a plataforma.</p>
+        <div class="fld"><label>Token do GitHub (somente leitura do repositório painel-dados)</label><input id="ghTok" type="password" placeholder="${S.ghTokOk?'•••••••• token salvo · cole outro para trocar':'github_pat_…'}" autocomplete="off"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm sec" onclick="salvarTokenPT()">Salvar token</button><button class="btn sm" onclick="syncPainelTime(false)">Atualizar agora do Painel Time</button></div>
+        <p class="mat" style="margin-top:8px">${ultCarga('painel_time')}</p></div></div>
     <div class="card"><h3>4 · PLR · Consumo estratégico e outros</h3><p>Anexe a planilha <b>PLR Consumo Estratégico</b> (aba Base: P1, P2, analisado, análise geral) e a plataforma traz os números de cada executivo. Também aceita planilha simples com Executivo, Competência, Realizado e Meta.</p>
       <div class="fld"><select id="plrIndUp" class="sel">${Object.entries(IND).map(([k,v])=>`<option value="${k}" ${k==='consumo'?'selected':''}>${v.nome}</option>`).join('')}</select></div>
       ${dropBox('upPLR','📎 Anexar planilha PLR (.xlsx)','.xlsx,.xls,.csv','upPlanilhaPLR')}
@@ -1967,7 +2038,9 @@ function upMsg(h){ S.upMsg=h; if($('upProg')) $('upProg').innerHTML=h; }
 function prog(t,p){ $('upProg').innerHTML=`<div class="card"><b>${esc(t)}</b><div class="prog"><i style="width:${Math.round(p*100)}%"></i></div></div>`; }
 async function insertChunks(table,rows,label,base=0,tot=1,size=500){
   for(let i=0;i<rows.length;i+=size){
-    const {error}=await sb.from(table).insert(rows.slice(i,i+size)); if(error) throw new Error(table+': '+error.message);
+    let lote=rows.slice(i,i+size), {error}=await sb.from(table).insert(lote);
+    for(let t=0;error&&t<4;t++){ const m=/'([a-z_]+)' column/.exec(error.message||''); if(!m) break; lote=lote.map(({[m[1]]:_,...r})=>r); rows=rows.map(({[m[1]]:_,...r})=>r); ({error}=await sb.from(table).insert(lote)); }
+    if(error) throw new Error(table+': '+error.message);
     prog(label,(base+Math.min(i+size,rows.length)/rows.length)/tot);
   }
 }
@@ -1986,10 +2059,12 @@ async function upArquivo(file){
   }catch(e){ upMsg(`<div class="msg err">Erro: ${e.message?e.message:esc(e)}</div>`); }
 }
 function carteiraRows(wb){
+  S._colsCart=null;
   const execs=new Set(execList().map(norm)); let all=[];
   for(const sn of wb.SheetNames){
     const {head,rows}=sheetRows(wb.Sheets[sn]);
     if(colIdx(head,A_MAT)<0) continue;
+    if(!S._colsCart||!S._colsCart.length) S._colsCart=head.filter(Boolean);
     if(colIdx(head,A_EXE)>=0){ all.push(...baseRows(head,rows)); continue; }
     // uma aba por executivo: usa o nome da aba
     if(execs.has(norm(sn))){ const nome=execList().find(e=>norm(e)===norm(sn));
@@ -2007,12 +2082,19 @@ async function upCarteiraMensal(file,linhas){
   await insertChunks('carteira_hist',uniq.map(r=>({...r,competencia:comp})),'Gravando carteira do mês…',0,2);
   const ult=S.cargas.filter(c=>c.tipo==='carteira_exec').map(c=>c.competencia).sort().at(-1);
   if(!ult||comp>=ult){ // carteira mais recente vira a base atual
-    for(let i=0;i<uniq.length;i+=500){ const {error}=await sb.from('carteira_base').upsert(uniq.slice(i,i+500).map(r=>({...r,atualizado_em:new Date().toISOString()})),{onConflict:'matricula'}); if(error) throw error; prog('Atualizando carteira atual…',.5+.5*Math.min(i+500,uniq.length)/uniq.length); }
+    let tira=[];
+    for(let i=0;i<uniq.length;i+=500){ const lote=()=>uniq.slice(i,i+500).map(r=>{ const o={...r,atualizado_em:new Date().toISOString()}; tira.forEach(k=>delete o[k]); return o; });
+      let {error}=await sb.from('carteira_base').upsert(lote(),{onConflict:'matricula'});
+      for(let t=0;error&&t<4;t++){ const m=/'([a-z_]+)' column/.exec(error.message||''); if(!m) break; tira.push(m[1]); ({error}=await sb.from('carteira_base').upsert(lote(),{onConflict:'matricula'})); }
+      if(error) throw error; prog('Atualizando carteira atual…',.5+.5*Math.min(i+500,uniq.length)/uniq.length); }
   }
   for(const c of compsDisponiveis()) await sb.rpc('fn_vincular_executivo',{p_comp:c});
-  await sb.from('cargas').insert({tipo:'carteira_exec',competencia:comp,arquivo:file.name,linhas:uniq.length,detalhe:{executivos:nEx}});
+  const tem=k=>uniq.some(u=>u[k]); const falta=[['agrupamento','Agrupamento'],['superintendencia','Superintendência'],['perfil','Perfil do cliente'],['sit_ligacao','Situação da ligação']].filter(([k])=>!tem(k)).map(x=>x[1]);
+  await sb.from('cargas').insert({tipo:'carteira_exec',competencia:comp,arquivo:file.name,linhas:uniq.length,detalhe:{executivos:nEx,...(falta.length?{sem_coluna:falta.join(', '),colunas:(S._colsCart||[]).join(', ').slice(0,600)}:{})}});
   const temProcx=compsDisponiveis().includes(comp);
-  upMsg(`<div class="msg ok">Carteira de ${compLbl(comp)} gravada · ${int(uniq.length)} matrículas de ${nEx} executivos.${temProcx?' Faturamento e arrecadação do mês já foram cruzados.':' Agora anexe a base Procx do mês para cruzar faturamento e arrecadação.'}</div>`);
+  upMsg(`<div class="msg ok">Carteira de ${compLbl(comp)} gravada · ${int(uniq.length)} matrículas de ${nEx} executivos.${temProcx?' Faturamento e arrecadação do mês já foram cruzados.':' Agora anexe a base Procx do mês para cruzar faturamento e arrecadação.'}</div>
+    ${falta.length?`<div class="msg info">Não encontrei na planilha a(s) coluna(s): <b>${falta.join(', ')}</b>. Colunas lidas: ${esc((S._colsCart||[]).join(' · '))}</div>`:''}`);
+  await carregaPerfilCart();
   S.cart.base=null; S.cart.loaded=null; await reload('cargas'); render();
 }
 /* ---------- 2 · base Procx (faturamento / arrecadação / consumo) ---------- */
@@ -2074,7 +2156,7 @@ async function upProcx(file,wb){
 function baseRows(head,rows){
   const c=k=>colIdx(head,k), iM=c(A_MAT), iE=c(A_EXE);
   const ix={cliente:c(['cliente','nomcliente','nomedocliente','razaosocial','nome']),curva:c(['curvafinal','curva']),carteira:c(['carteira']),utilizacao:c(['utilizacao','subcategoria','segmento']),
-    sit_ligacao:c(['sitligacao','situacaoligacao','situacao']),bairro:c(['bairro','nombairro']),regiao:c(['regiao','diretoria','spe','superintendencia']),perfil:c(['perfildocliente','perfildepagamento','perfil']),
+    sit_ligacao:c(['sitligacao','situacaoligacao','situacao']),bairro:c(['bairro','nombairro']),regiao:c(['regiao','diretoria','spe','superintendencia']),perfil:c(['perfildocliente','perfildepagamento','perfilcliente','perfilpagamento','perfildepagto','perfil']),
     superintendencia:c(['superintendencia','superintendencias','superint','sup']),agrupamento:c(['agrupamento','agrupamentos','agrupamentocarteira','grupo'])};
   return rows.map(r=>{ const m=toMat(r[iM]), e=String(r[iE]??'').trim(); if(!m||!e||e==='#N/A') return null;
     const o={matricula:m,executivo:e}; for(const k in ix) o[k]=ix[k]>=0&&r[ix[k]]!=null?String(r[ix[k]]).trim():null; return o; }).filter(Boolean);
@@ -2180,7 +2262,7 @@ async function upCobranca(file){
         valor:toNum(g(r,'val')),aging:toNum(g(r,'ag')),perfil_pagamento:txt(g(r,'pf')),base_origem:txt(g(r,'bs')),pagou_mes:txt(g(r,'pg'))||pago,
         sit_ligacao:sit,saldo_vencido:s?+s.saldo_vencido:(e?.saldo_vencido??null),regiao:s?.diretoria??e?.regiao??null,
         status_atuacao:e?.status_atuacao??stAt, data_agendamento:e?.data_agendamento??toISO(g(r,'da')), observacao:e?.observacao??txt(g(r,'obs')),
-        status:e?e.status:(pago==='PAGOU'?'Pagamento identificado':stAt?'Em atuação':'Não iniciado'), status_origem:e?e.status_origem:'base'}]; }).filter(Boolean)).values()];
+        status:e?e.status:(stAt?'Em atuação':'Não iniciado'), status_origem:e?e.status_origem:'base'}]; }).filter(Boolean)).values()];
     const naoVieram=Object.values(exist).filter(a=>!novos.some(n=>n.matricula===a.matricula));
     const remover=naoVieram.filter(a=>a.status==='Não iniciado'&&!a.status_atuacao);
     const qtdNovas=novos.filter(n=>!exist[n.matricula]).length;
@@ -2195,20 +2277,52 @@ async function upCobranca(file){
   }catch(e){ upMsg(`<div class="msg err">Erro: ${esc(e.message||e)}</div>`); }
 }
 /* ---------- 3 · Painel Time ---------- */
+/* ---------- Painel Time automático (GitHub da Carol) ---------- */
+const PT_GH={owner:'carolribeiroconti1001-source',repo:'painel-dados',path:'painel_time_dados.json'};
+async function tokenPT(){ const {data,error}=await sb.from('config_integracoes').select('valor').eq('chave','github_painel_time').maybeSingle(); if(error) throw error; return data?.valor||null; }
+async function salvarTokenPT(){
+  const v=$('ghTok').value.trim(); if(!v) return toast('Cole o token.',true);
+  const {error}=await sb.from('config_integracoes').upsert({chave:'github_painel_time',valor:v,atualizado_em:new Date().toISOString()}); if(error) return toast(error.message,true);
+  S.ghTokOk=true; toast('Token salvo'); syncPainelTime(false);
+}
+async function gunzip64(b64){ const bin=atob(b64), by=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) by[i]=bin.charCodeAt(i);
+  const st=new Blob([by]).stream().pipeThrough(new DecompressionStream('gzip')); return JSON.parse(await new Response(st).text()); }
+async function gravarPLRPainel(P,arquivo,origem,extra){
+  const rows=[]; for(const [e,arr] of Object.entries(P.execs)) arr.forEach((v,i)=>{ if(v!=null) rows.push({executivo:e,competencia:P.months[i],indicador:'arrecadacao',realizado:v,meta:P.meta,unidade:'pct',fonte:'Painel Time',atualizado_em:new Date().toISOString()}); });
+  const {error}=await sb.from('plr_resultados').upsert(rows,{onConflict:'executivo,competencia,indicador'}); if(error) throw error;
+  await sb.from('cargas').insert({tipo:'painel_time',competencia:P.months.at(-1),arquivo,linhas:rows.length,detalhe:{meta:pct(P.meta,0),base:P.built||'',origem,...(extra||{})}});
+  return rows.length;
+}
+async function syncPainelTime(silencioso){
+  if(!S.gestao) return;
+  try{
+    const tok=await tokenPT(); S.ghTokOk=!!tok;
+    if(!tok){ if(!silencioso) upMsg('<div class="msg err">Salve primeiro o token do GitHub (card 3 · PLR Arrecadação).</div>'); return; }
+    const r=await fetch(`https://api.github.com/repos/${PT_GH.owner}/${PT_GH.repo}/contents/${PT_GH.path}`,{headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github.raw','X-GitHub-Api-Version':'2022-11-28'},cache:'no-store'});
+    if(!r.ok) throw new Error(r.status===401||r.status===403||r.status===404?`o GitHub recusou o token (HTTP ${r.status}). Confira se ele dá acesso ao repositório painel-dados.`:'HTTP '+r.status);
+    const rec=await r.json(); if(!rec.plr) throw new Error('o arquivo do Painel Time não tem dados de PLR.');
+    const ult=S.cargas.find(c=>c.tipo==='painel_time'&&c.detalhe&&c.detalhe.plrUpdatedAt);
+    if(silencioso && ult && rec.plrUpdatedAt && new Date(rec.plrUpdatedAt)<=new Date(ult.detalhe.plrUpdatedAt)) return; // nada novo
+    const P=await gunzip64(rec.plr);
+    const n=await gravarPLRPainel(P,'Painel Time · GitHub (automático)','github',rec.plrUpdatedAt?{plrUpdatedAt:rec.plrUpdatedAt}:null);
+    await Promise.all([reload('plr'),reload('cargas')]);
+    const msg=`PLR Arrecadação atualizada do Painel Time · ${n} resultados (até ${compLbl(P.months.at(-1))}, dados da Carol de ${fdt(rec.plrUpdatedAt)})`;
+    if(silencioso) toast(msg); else upMsg(`<div class="msg ok">${msg}</div>`);
+    render();
+  }catch(e){ if(!silencioso) upMsg(`<div class="msg err">Painel Time: ${esc(e.message||e)}</div>`); else console.warn('Painel Time:',e); }
+}
 async function upPainelTime(file){
   if(!file) return;
   try{
     const txt=await file.text(); const m=txt.match(/<script[^>]*id="plr-json"[^>]*>([\s\S]*?)<\/script>/);
     if(!m) throw new Error('Não encontrei os dados de PLR (plr-json) neste arquivo.');
-    const P=JSON.parse(m[1]); const rows=[];
-    for(const [e,arr] of Object.entries(P.execs)) arr.forEach((v,i)=>{ if(v!=null) rows.push({executivo:e,competencia:P.months[i],indicador:'arrecadacao',realizado:v,meta:P.meta,unidade:'pct',fonte:'Painel Time',atualizado_em:new Date().toISOString()}); });
-    const {error}=await sb.from('plr_resultados').upsert(rows,{onConflict:'executivo,competencia,indicador'}); if(error) throw error;
+    const P=JSON.parse(m[1]);
     let novas=0; const mf=txt.match(/<script[^>]*id="photos-json"[^>]*>([\s\S]*?)<\/script>/);
     if(mf){ const F=JSON.parse(mf[1]);
       for(const [ex,src] of Object.entries(F)){ if(FOTOS_PADRAO[ex]||(S.fotos||{})[ex]) continue;
         try{ const foto=await recortaFoto(src); await sb.from('fotos_executivos').upsert({executivo:ex,foto}); S.fotos={...(S.fotos||{}),[ex]:foto}; novas++; }catch(_){} } }
-    await sb.from('cargas').insert({tipo:'painel_time',competencia:P.months.at(-1),arquivo:file.name,linhas:rows.length,detalhe:{meta:pct(P.meta,0),base:P.built||''}});
-    upMsg(`<div class="msg ok">PLR Arrecadação atualizada · ${rows.length} resultados (${Object.keys(P.execs).length} executivos, até ${compLbl(P.months.at(-1))}).${novas?` · ${novas} foto(s) nova(s) incluída(s)`:''}</div>`);
+    const nRows=await gravarPLRPainel(P,file.name,'arquivo');
+    upMsg(`<div class="msg ok">PLR Arrecadação atualizada · ${nRows} resultados (${Object.keys(P.execs).length} executivos, até ${compLbl(P.months.at(-1))}).${novas?` · ${novas} foto(s) nova(s) incluída(s)`:''}</div>`);
     await Promise.all([reload('plr'),reload('cargas')]); render();
   }catch(e){ upMsg(`<div class="msg err">Erro: ${esc(e.message||e)}</div>`); }
 }
