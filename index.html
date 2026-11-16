@@ -301,6 +301,7 @@
   .lupa-ac .lf{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:auto; }
   .lupa-mini{ display:flex; flex-wrap:wrap; gap:8px 18px; font-size:12.5px; color:var(--text-mut); margin-top:12px; }
   .lupa-ht{ font-family:var(--font-display); font-size:14px; margin:16px 0 8px; color:var(--navy); }
+  .bloco-t{ font-family:var(--font-display); font-size:15px; color:var(--navy); margin:22px 0 0; }
 </style>
 </head>
 <body>
@@ -651,7 +652,7 @@ const L_STATUS_LACUNA = ['PAGO','DÉBITO AUTOMÁTICO','PARCELADO','ISENTA','RESI
   'CONTATO SEM SUCESSO/VISITA','FATURA EM CONTESTAÇÃO','JÁ POSSUI FATURA PARA O MÊS VIGENTE','AGUARDANDO O RETORNO DO CLIENTE','FATURÃO',
   'EM CONTATO COM O CLIENTE, INFORMA QUE O PG JÁ ESTAVA PROGRAMADO'];
 const NOME_ACAO = {1:'Ação 1', 2:'Cobrança', 3:'Lacuna'};
-function perfilDe(m,r){ return (r&&r.perfil_cliente) || (S.cart.base&&S.cart.base[m]&&S.cart.base[m].perfil) || saldoMat(m)?.perfil || S.acao.find(x=>x.acao_id===2&&x.matricula===m)?.perfil_pagamento || null; }
+function perfilDe(m,r){ return (r&&r.perfil_cliente) || (S.cart.base&&S.cart.base[m]&&S.cart.base[m].perfil) || saldoMat(m)?.perfil || S.acao.find(x=>(x.acao_id===2||x.acao_id===1)&&x.matricula===m&&x.perfil_pagamento)?.perfil_pagamento || null; }
 const sd0=null;
 const acaoDe = id => doExec(S.acao).filter(r=>r.acao_id===id);
 const saldoDe = () => doExec(S.saldo||[]);
@@ -1036,8 +1037,8 @@ async function loadCarteira(){
   const key=S.cart.comp+'|'+execFoco(); if(!S.cart.comp||S.cart.loaded===key) return;
   const c=S.cart.comp, e=execFoco();
   const q=t=>()=>{ let x=sb.from(t).select('*').eq('competencia',c).order('id'); if(e) x=x.eq('executivo',e); return x; };
-  const qh=()=>{ let x=sb.from('carteira_hist').select('matricula,cliente,executivo,curva,carteira,utilizacao,sit_ligacao,bairro').eq('competencia',c).order('matricula'); if(e) x=x.eq('executivo',e); return x; };
-  const qb=()=>{ let x=sb.from('carteira_base').select('matricula,cliente,executivo,curva,carteira,utilizacao,sit_ligacao,bairro').order('matricula'); if(e) x=x.eq('executivo',e); return x; };
+  const qh=()=>{ let x=sb.from('carteira_hist').select('*').eq('competencia',c).order('matricula'); if(e) x=x.eq('executivo',e); return x; };
+  const qb=()=>{ let x=sb.from('carteira_base').select('*').order('matricula'); if(e) x=x.eq('executivo',e); return x; };
   let [fat,arr,con,base]=await Promise.all([fetchAll(q('cart_faturamento')),fetchAll(q('cart_arrecadacao')),fetchAll(q('cart_consumo')),fetchAll(qh)]);
   if(!base.length) base=await fetchAll(qb);
   S.cart.fat=fat; S.cart.arr=arr; S.cart.con=con; S.cart.base=Object.fromEntries(base.map(b=>[b.matricula,b])); S.cart.loaded=key;
@@ -1079,7 +1080,9 @@ function carteiraHTML(){
   <div class="toolbar" style="margin-top:16px"><span class="mat">Carteira de <b>${compLbl(S.cart.comp)}</b> · anexada em ${fdt(carga?.enviado_em)}</span>
     <select class="sel" style="margin-left:auto" onchange="S.cart.comp=this.value;S.cart.loaded=null;render()">${comps.map(c=>`<option value="${c}" ${c===S.cart.comp?'selected':''}>${compLbl(c)}</option>`).join('')}</select></div>
   ${semExec?`<div class="msg info">${int(semExec)} matrículas desta carteira não estão vinculadas a nenhum executivo. Anexe a carteira do mês em Gestão › Cargas para cruzar.</div>`:''}
-  <div class="kpis">
+  ${carteiraGeralHTML()}
+  <h3 class="bloco-t">Faturamento do mês</h3>
+  <div class="kpis" style="margin-top:8px">
     <div class="k hero-k"><div class="l">Matrículas faturadas</div><div class="v">${int(nMat)}</div><div class="s">${money(g.fatTot)} faturado</div></div>
     <div class="k c3"><div class="l">Pagos</div><div class="v">${int(g.by.Pagou.n)}</div><div class="s">${money(g.by.Pagou.v)} · ${nMat?pct(g.by.Pagou.n/nMat,0):'—'}</div></div>
     <div class="k c2"><div class="l">A vencer</div><div class="v">${int(g.by['A vencer'].n)}</div><div class="s">${money(g.by['A vencer'].v)}</div></div>
@@ -1140,23 +1143,23 @@ function openMat(m){
 }
 function chartBase(){ Chart.defaults.font.family="'Inter',system-ui,sans-serif"; Chart.defaults.color='#5B7285'; }
 function drawCartCharts(){
-  if(!$('chSt')) return; chartBase();
+  if(!$('chSt')) return; chartBase(); drawGeralCharts();
   const g=cartAgg();
-  charts.st=new Chart($('chSt'),{type:'doughnut',data:{labels:['Pagos','A vencer','Vencidos'],datasets:[{data:[g.by.Pagou.n,g.by['A vencer'].n,g.by.Vencido.n],backgroundColor:['#2C9A66','#1C7EBE','#C0492E'],borderWidth:2,borderColor:'#fff'}]},options:{maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom'}}}});
+  charts.st=new Chart($('chSt'),{type:'doughnut',data:{labels:['Pagos','A vencer','Vencidos'],datasets:[{data:[g.by.Pagou.n,g.by['A vencer'].n,g.by.Vencido.n],backgroundColor:[AZ.medio,AZ.claro,AZ.escuro],borderWidth:2,borderColor:'#fff'}]},options:{maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'bottom'}}}});
   const dias=[...new Set(g.F.map(f=>f.vencimento).filter(Boolean))].sort();
   const ser=st=>dias.map(d=>g.F.filter(f=>f.vencimento===d&&f.status===st).reduce((s,f)=>s+(+f.faturamento||0),0));
   const yMoney={ticks:{callback:v=>money(v)},grid:{color:'#EEF3F6'}};
   charts.v=new Chart($('chVenc'),{type:'bar',data:{labels:dias.map(fdate).map(x=>x.slice(0,5)),datasets:[
-    {label:'Pagos',data:ser('Pagou'),backgroundColor:'#2C9A66'},{label:'A vencer',data:ser('A vencer'),backgroundColor:'#1C7EBE'},{label:'Vencidos',data:ser('Vencido'),backgroundColor:'#C0492E'}]},
-    options:{maintainAspectRatio:false,scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,...yMoney}},plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+money2(c.raw)}}}}});
+    {label:'Pagos',data:ser('Pagou'),backgroundColor:AZ.medio},{label:'A vencer',data:ser('A vencer'),backgroundColor:AZ.claro},{label:'Vencidos',data:ser('Vencido'),backgroundColor:AZ.escuro}]},
+    options:{maintainAspectRatio:false,layout:{padding:{top:46}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,...yMoney}},plugins:{rotulos:{fmt:moneyCurto,soTotal:true},legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+money2(c.raw)}}}}});
   const conds=['Queda maior que 100%','Queda entre 60% e 100%','Queda menor que 60%','Fatura igual a anterior','Aumento menor que 60%','Aumento entre 60% e 100%','Aumento maior que 100%'];
   const outros=[...new Set(g.C.map(c=>c.condicional).filter(c=>c&&!conds.includes(c)))];
   const cl=[...conds,...outros].filter(c=>g.C.some(x=>x.condicional===c));
-  charts.c=new Chart($('chCond'),{type:'bar',data:{labels:cl,datasets:[{data:cl.map(c=>g.C.filter(x=>x.condicional===c).length),backgroundColor:cl.map(c=>/maior que 100|entre 60/.test(c)?'#C0492E':/igual/.test(c)?'#C9E3F3':'#1B4E76'),borderRadius:6}]},
-    options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'#EEF3F6'}},y:{grid:{display:false}}}}});
+  charts.c=new Chart($('chCond'),{type:'bar',data:{labels:cl,datasets:[{data:cl.map(c=>g.C.filter(x=>x.condicional===c).length),backgroundColor:cl.map(c=>/maior que 100/.test(c)?AZ.escuro:/entre 60/.test(c)?AZ.forte:/igual/.test(c)?AZ.palido:AZ.medio),borderRadius:6}]},
+    options:{indexAxis:'y',maintainAspectRatio:false,layout:{padding:{right:36}},plugins:{legend:{display:false}},scales:{x:{grid:{color:'#EEF3F6'}},y:{grid:{display:false}}}}});
   const dp=[...new Set(g.A.map(a=>a.data_pgto).filter(Boolean))].sort();
   charts.a=new Chart($('chArr'),{type:'line',data:{labels:dp.map(fdate).map(x=>x.slice(0,5)),datasets:[{label:'Arrecadado',data:dp.map(d=>g.A.filter(a=>a.data_pgto===d).reduce((s,a)=>s+(+a.valor||0),0)),borderColor:'#1C7EBE',backgroundColor:'rgba(28,126,190,.12)',fill:true,tension:.3,pointRadius:3}]},
-    options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>money2(c.raw)}}},scales:{x:{grid:{display:false}},y:yMoney}}});
+    options:{maintainAspectRatio:false,layout:{padding:{top:46}},plugins:{rotulos:{fmt:moneyCurto,vertical:true},legend:{display:false},tooltip:{callbacks:{label:c=>money2(c.raw)}}},scales:{x:{grid:{display:false}},y:yMoney}}});
 }
 
 /* ---------- Lupa: todas as atuações de uma matrícula ---------- */
@@ -1232,6 +1235,80 @@ function lupaDetalhe(m,hist){
   <div class="hist">${hist.length?hist.map(h=>`<div><b>${esc(NOME_ACAO[h.acao_id]||'')} · ${esc(CAMPO_L[h.campo]||h.campo.replace(/_/g,' '))}</b>: ${esc(h.de||'—')} → <b>${esc(h.para||'—')}</b><br><span>${fdt(h.em)} · ${esc(h.por||'')}${h.origem==='plataforma'?' (automático)':''}</span></div>`).join(''):'<span class="mat">Nenhuma alteração registrada desde o início da plataforma.</span>'}</div>`;
 }
 function lupaAtuar(id,m){ openAtuar(id,m); }
+
+/* ---------- Carteira geral do mês (total, ativo x cortado, superintendência, agrupamento) ---------- */
+const AZ={escuro:'#0E2E4A',forte:'#1B4E76',medio:'#1C7EBE',vivo:'#3E95CF',claro:'#8FC3E6',palido:'#CFE6F6'};
+const AZ_SEQ=[AZ.escuro,AZ.forte,AZ.medio,AZ.vivo,AZ.claro,AZ.palido];
+function moneyCurto(v){ return money(v).replace('R$ ',''); }
+function sitGrupo(s){ const x=norm(s); if(!x) return 'Não informado'; if(x.startsWith('cort')) return 'Cortada'; if(x.startsWith('ativ')||x.startsWith('ligad')) return 'Ativa'; return String(s).trim().replace(/^./,c=>c.toUpperCase()); }
+function cartGeral(){
+  const B=Object.values(S.cart.base||{}), cnt=f=>{ const o={}; B.forEach(b=>{ const k=f(b)||'Não informado'; o[k]=(o[k]||0)+1; }); return Object.entries(o).sort((a,b)=>b[1]-a[1]); };
+  return {B, sit:cnt(b=>sitGrupo(b.sit_ligacao)), sup:cnt(b=>(b.superintendencia||b.regiao||'').trim()), agr:cnt(b=>(b.agrupamento||'').trim())};
+}
+function carteiraGeralHTML(){
+  const g=cartGeral(); if(!g.B.length) return '';
+  const n=k=>(g.sit.find(x=>x[0]===k)||[0,0])[1], at=n('Ativa'), co=n('Cortada'), out=g.B.length-at-co;
+  const temSup=g.sup.some(x=>x[0]!=='Não informado'), temAgr=g.agr.some(x=>x[0]!=='Não informado');
+  const h=k=>Math.max(170, k*30+30);
+  return `<h3 class="bloco-t">Carteira geral · ${compLbl(S.cart.comp)}</h3>
+  <div class="kpis" style="margin-top:8px">
+    <div class="k hero-k"><div class="l">Total de matrículas</div><div class="v">${int(g.B.length)}</div><div class="s">na carteira do mês${execFoco()?' · '+esc(execFoco()):''}</div></div>
+    <div class="k c2"><div class="l">Ativas</div><div class="v">${int(at)}</div><div class="s">${pct(at/g.B.length,1)} da carteira</div></div>
+    <div class="k c1"><div class="l">Cortadas</div><div class="v">${int(co)}</div><div class="s">${pct(co/g.B.length,1)} da carteira</div></div>
+    ${out?`<div class="k"><div class="l">Outras situações</div><div class="v">${int(out)}</div><div class="s">${g.sit.filter(x=>!['Ativa','Cortada'].includes(x[0])).map(x=>esc(x[0])+' '+int(x[1])).join(' · ')}</div></div>`:''}
+    <div class="k c2"><div class="l">Superintendências</div><div class="v">${temSup?int(g.sup.filter(x=>x[0]!=='Não informado').length):'—'}</div><div class="s">${temSup?'na carteira':'sem a coluna na carteira'}</div></div>
+    <div class="k c2"><div class="l">Agrupamentos</div><div class="v">${temAgr?int(g.agr.filter(x=>x[0]!=='Não informado').length):'—'}</div><div class="s">${temAgr?'na carteira':'sem a coluna na carteira'}</div></div>
+  </div>
+  <div class="grid3">
+    <div class="card"><h3>Ativo x Cortado <small>matrículas</small></h3><div class="chart-box"><canvas id="chSit"></canvas></div></div>
+    <div class="card"><h3>Por Superintendência <small>matrículas</small></h3>${temSup?`<div class="chart-box" style="height:${h(g.sup.length)}px"><canvas id="chSup"></canvas></div>`:'<p class="mat">A carteira do mês anexada não tem a coluna Superintendência. Anexe de novo em Gestão › Cargas com essa coluna.</p>'}</div>
+    <div class="card"><h3>Por Agrupamento <small>matrículas</small></h3>${temAgr?`<div class="chart-box" style="height:${h(g.agr.length)}px"><canvas id="chAgr"></canvas></div>`:'<p class="mat">A carteira do mês anexada não tem a coluna Agrupamento. Anexe de novo em Gestão › Cargas com essa coluna.</p>'}</div>
+  </div>`;
+}
+function drawGeralCharts(){
+  if(!$('chSit')) return; const g=cartGeral();
+  const corSit=k=>k==='Ativa'?AZ.medio:k==='Cortada'?AZ.escuro:AZ.claro;
+  charts.sit=new Chart($('chSit'),{type:'doughnut',data:{labels:g.sit.map(x=>x[0]),datasets:[{data:g.sit.map(x=>x[1]),backgroundColor:g.sit.map(x=>corSit(x[0])),borderWidth:2,borderColor:'#fff'}]},
+    options:{maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'bottom'}}}});
+  const barH=(id,el,rows)=>{ if(!$(el)) return; charts[id]=new Chart($(el),{type:'bar',data:{labels:rows.map(x=>x[0]),datasets:[{data:rows.map(x=>x[1]),backgroundColor:rows.map((x,i)=>x[0]==='Não informado'?AZ.palido:AZ_SEQ[Math.min(i,3)]),borderRadius:6,maxBarThickness:24}]},
+    options:{indexAxis:'y',maintainAspectRatio:false,layout:{padding:{right:84}},plugins:{legend:{display:false},rotulos:{fmt:v=>int(v)+' · '+pct(v/g.B.length,0)},tooltip:{callbacks:{label:c=>int(c.raw)+' matrículas · '+pct(c.raw/g.B.length,1)}}},scales:{x:{grid:{color:'#EEF3F6'},ticks:{precision:0}},y:{grid:{display:false}}}}}); };
+  barH('sup','chSup',g.sup); barH('agr','chAgr',g.agr);
+}
+
+/* ---------- rótulos de dados em todos os gráficos ---------- */
+function _lum(c){ const m=String(c||'').match(/^#([0-9a-f]{6})$/i); if(!m) return 1; const n=parseInt(m[1],16); return (0.299*(n>>16&255)+0.587*(n>>8&255)+0.114*(n&255))/255; }
+const ROTULOS={id:'rotulos',
+  afterDatasetsDraw(ch,args,opt){
+    if(!opt||opt.display===false) return;
+    const ctx=ch.ctx, type=ch.config.type, fmt=opt.fmt||(v=>int(v)), horiz=ch.options.indexAxis==='y', stacked=!!(ch.options.scales?.x?.stacked);
+    const F=(w,sz)=>`${w} ${sz}px Inter, system-ui, sans-serif`;
+    ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+    const bgOf=(ds,i)=>Array.isArray(ds.backgroundColor)?ds.backgroundColor[i]:ds.backgroundColor;
+    if(type==='doughnut'||type==='pie'){
+      ch.data.datasets.forEach((ds,di)=>{ const meta=ch.getDatasetMeta(di); const tot=ds.data.reduce((s,x)=>s+(+x||0),0);
+        meta.data.forEach((el,i)=>{ const v=+ds.data[i]; if(!v||!ch.getDataVisibility(i)) return; const p=el.getProps(['startAngle','endAngle'],true); if(p.endAngle-p.startAngle<0.22) return;
+          const pos=el.tooltipPosition(); ctx.fillStyle=_lum(bgOf(ds,i))<0.6?'#fff':AZ.escuro;
+          ctx.font=F(800,12); ctx.fillText(fmt(v),pos.x,pos.y-7); ctx.font=F(600,10); ctx.fillText(pct(v/tot,0),pos.x,pos.y+7); }); });
+      ctx.restore(); return;
+    }
+    const n=ch.data.labels.length;
+    if(stacked&&opt.soTotal){ // total no topo da pilha (barras verticais)
+      for(let i=0;i<n;i++){ let tot=0, top=Infinity, x=null, w=0;
+        ch.data.datasets.forEach((ds,di)=>{ const meta=ch.getDatasetMeta(di); if(meta.hidden) return; const el=meta.data[i]; const v=+ds.data[i]||0; if(!el||!v) return; tot+=v; top=Math.min(top,el.y); x=el.x; w=el.width; });
+        if(!tot) continue; const t=fmt(tot); ctx.font=F(700,10.5); ctx.fillStyle=AZ.escuro;
+        if(ctx.measureText(t).width>w+6){ ctx.save(); ctx.translate(x,top-4); ctx.rotate(-Math.PI/2); ctx.textAlign='left'; ctx.fillText(t,0,0); ctx.restore(); }
+        else ctx.fillText(t,x,top-9); }
+      ctx.restore(); return;
+    }
+    ch.data.datasets.forEach((ds,di)=>{ const meta=ch.getDatasetMeta(di); if(meta.hidden) return;
+      meta.data.forEach((el,i)=>{ const v=+ds.data[i]; if(!v) return; const t=fmt(v,i); ctx.font=F(700,11); ctx.fillStyle=AZ.escuro;
+        if(type==='line'){ if(opt.vertical){ ctx.save(); ctx.translate(el.x,el.y-8); ctx.rotate(-Math.PI/2); ctx.textAlign='left'; ctx.font=F(700,10.5); ctx.fillText(t,0,0); ctx.restore(); } else ctx.fillText(t,el.x,el.y-12); return; }
+        if(horiz){ ctx.textAlign='left'; ctx.fillText(t,Math.max(el.x,el.base)+6,el.y); ctx.textAlign='center'; return; }
+        ctx.fillText(t,el.x,el.y-9); }); });
+    ctx.restore();
+  }};
+Chart.register(ROTULOS);
+Chart.defaults.plugins.rotulos={};
 </script>
 <script>
 /* =====================================================================
@@ -1491,9 +1568,9 @@ function viewPlr(){
   ${legend}${tb}
   ${!e&&S.plrInd==='consumo'?consumoTimeHTML():''}
   <div class="sec-h" style="margin-top:22px"><div><h2 style="font-size:18px">Justificativas de não atingimento</h2><p>Validadas e aprovadas por Tayene ou Day</p></div></div>
-  ${J.length?`<div class="scroll"><table><thead><tr><th>Mês</th>${S.gestao&&!execFoco()?'<th>Executivo</th>':''}<th>Indicador</th><th>Motivo</th><th>Descrição</th><th>Status</th><th>Parecer</th></tr></thead><tbody>
+  ${J.length?`<div class="scroll"><table><thead><tr><th>Mês</th>${S.gestao&&!execFoco()?'<th>Executivo</th>':''}<th>Indicador</th><th>Motivo</th><th>Descrição</th><th>Status</th><th>Parecer</th>${S.gestao?'<th></th>':''}</tr></thead><tbody>
     ${J.map(j=>`<tr><td>${compLbl(j.competencia)}</td>${S.gestao&&!execFoco()?`<td>${pessoa(j.executivo)}</td>`:''}<td>${IND[j.indicador]?.nome||j.indicador}</td><td>${esc(j.motivo)}</td><td class="wrap-c">${esc(j.descricao||'—')}</td>
-      <td><span class="pill ${j.status==='Aprovada'?'st-3':j.status==='Rejeitada'?'st-4':'st-5'}">${j.status}</span></td><td class="wrap-c">${esc(j.parecer||'')}${j.validado_por?`<br><span class="mat">${esc(j.validado_por)} · ${fdate(j.validado_em)}</span>`:''}</td></tr>`).join('')}</tbody></table></div>`
+      <td><span class="pill ${j.status==='Aprovada'?'st-3':j.status==='Rejeitada'?'st-4':'st-5'}">${j.status}</span></td><td class="wrap-c">${esc(j.parecer||'')}${j.validado_por?`<br><span class="mat">${esc(j.validado_por)} · ${fdate(j.validado_em)}</span>`:''}</td>${S.gestao?`<td><button class="btn sec sm" onclick="plrClick('${esc(j.executivo)}','${j.competencia}','${j.indicador}')">Editar</button></td>`:''}</tr>`).join('')}</tbody></table></div>`
   :'<div class="card empty"><b>Nenhuma justificativa enviada</b>Quando uma meta não for atingida, clique na célula vermelha para justificar.</div>'}`;
 }
 function fonteInd(k){ if(k==='consumo'&&S.consumo.length) return 'Planilha PLR Consumo Estratégico · total analisado / meta do mês'; const s=new Set(S.plr.filter(r=>r.indicador===k&&r.fonte).map(r=>r.fonte)); return s.size?[...s].join(', '):({cadastral:'Plataforma de Atualização Cadastral',pesquisa:'Plataforma de Pesquisa de Satisfação',arrecadacao:'Painel Time',consumo:'Planilha de Consumo Estratégico'}[k]); }
@@ -1508,6 +1585,21 @@ function plrClick(e,c,i){
       <div class="fld"><label>Descreva a justificativa</label><textarea id="j_desc" rows="4" placeholder="Ex.: férias de 10 a 24/10; alinhado com a gestão em…"></textarea></div><div id="j_msg"></div>`;
     foot+=`<button class="btn" onclick="sendJust('${esc(e)}','${c}','${i}')">Enviar justificativa</button>`;
   }
+  if(S.gestao&&isC){
+    body+=`<h3 style="font-family:var(--font-display);font-size:14.5px;margin:12px 0 8px">Editar resultado (gestão)</h3><div class="fgrid">
+      <div class="fld"><label>Resultado do mês</label><select id="c_st">${['Aprovado','Justificado','Reprovado'].map(x=>`<option ${r.status===x?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="fld"><label>Motivo / observação</label><input id="c_mot" value="${esc(r.motivo||'')}" placeholder="Ex.: férias, alinhamento com a gestão"></div></div>
+      ${/^Ajuste da gestão/.test(r.fonte||'')?`<p class="mat" style="margin-top:6px">${esc(r.fonte)}</p>`:''}`;
+    foot+=`<button class="btn sec" onclick="saveConsumoEdit('${esc(e)}','${c}')">Salvar resultado</button>`;
+  }
+  if(S.gestao&&j&&j.id){
+    body+=`<h3 style="font-family:var(--font-display);font-size:14.5px;margin:12px 0 8px">Editar justificativa (gestão)</h3><div class="fgrid">
+      <div class="fld"><label>Motivo</label><select id="je_mot">${opts(MOTIVOS_PLR,j.motivo,'')}</select></div>
+      <div class="fld"><label>Status</label><select id="je_st">${['Aprovada','Pendente','Rejeitada'].map(x=>`<option ${j.status===x?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="fld full"><label>Descrição</label><textarea id="je_desc" rows="3">${esc(j.descricao||'')}</textarea></div>
+      <div class="fld full"><label>Parecer da gestão</label><input id="je_par" value="${esc(j.parecer||'')}"></div></div>`;
+    foot+=`<button class="btn sec" onclick="saveJustEdit(${j.id})">Salvar justificativa</button>`;
+  }
   if(S.gestao&&!isC){
     body+=`<h3 style="font-family:var(--font-display);font-size:14.5px;margin:12px 0 8px">Ajustar resultado (gestão)</h3><div class="fgrid">
       <div class="fld"><label>Realizado ${r?.unidade==='qtd'||IND[i].un==='qtd'?'(qtd)':'(%)'}</label><input id="p_real" inputmode="decimal" value="${r?.realizado!=null?(r.unidade==='pct'?nf(r.realizado*100,2):r.realizado):''}"></div>
@@ -1515,6 +1607,19 @@ function plrClick(e,c,i){
     foot+=`<button class="btn sec" onclick="savePlrCell('${esc(e)}','${c}','${i}')">Salvar resultado</button>`;
   }
   modal(`<div class="modal ${isC?'':'sm'}">${head}<div class="mb">${body||'<p class="mat">Meta atingida.</p>'}</div><div class="mf"><button class="btn sec" onclick="closeModal()">Fechar</button>${foot}</div></div>`);
+}
+async function saveConsumoEdit(e,c){
+  const st=$('c_st').value, mot=$('c_mot').value.trim()||null;
+  const {error}=await sb.from('plr_consumo').update({status:st,justificado:st==='Justificado',motivo:mot,fonte:`Ajuste da gestão · ${S.me.nome||S.me.email} · ${new Date().toLocaleDateString('pt-BR')}`,atualizado_em:new Date().toISOString()}).eq('executivo',e).eq('competencia',c);
+  if(error) return toast(error.message,true);
+  closeModal(); toast('Resultado atualizado'); await reload('consumo'); render();
+}
+async function saveJustEdit(id){
+  const st=$('je_st').value, upd={motivo:$('je_mot').value,descricao:$('je_desc').value.trim()||null,status:st,parecer:$('je_par').value.trim()||null};
+  if(st!=='Pendente'){ upd.validado_por=S.me.nome||S.me.email; upd.validado_em=new Date().toISOString(); }
+  const {error}=await sb.from('plr_justificativas').update(upd).eq('id',id);
+  if(error) return toast(error.message,true);
+  closeModal(); toast('Justificativa atualizada'); await reload('just'); render();
 }
 async function sendJust(e,c,i){
   const rec={executivo:e,competencia:c,indicador:i,motivo:$('j_mot').value,descricao:$('j_desc').value.trim()||null};
@@ -1721,7 +1826,7 @@ function barrasStatus(rows,campo){
   const lst=Object.entries(cnt).sort((a,b)=>b[1]-a[1]), mx=Math.max(1,...lst.map(x=>x[1]));
   return lst.map(([k,n])=>`<div style="display:grid;grid-template-columns:minmax(150px,1.3fr) 2fr 44px;gap:10px;align-items:center;margin:5px 0;font-size:12.5px">
       <span style="color:var(--text-mut);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(k)}">${esc(k)}</span>
-      <div style="height:10px;background:var(--water-soft);border-radius:99px;overflow:hidden"><i style="display:block;height:100%;width:${(n/mx*100).toFixed(0)}%;background:${k==='Sem atuação'||k==='Não iniciado'?'var(--rose)':POSITIVOS.includes(k)||k==='PAGO'||k==='FATURA ANTECIPADA'||/^Pago|Pagamento agendado/.test(k)?'var(--leaf)':'var(--water)'};border-radius:99px"></i></div>
+      <div style="height:10px;background:var(--water-soft);border-radius:99px;overflow:hidden"><i style="display:block;height:100%;width:${(n/mx*100).toFixed(0)}%;background:${k==='Sem atuação'||k==='Não iniciado'?'#0E2E4A':POSITIVOS.includes(k)||k==='PAGO'||k==='FATURA ANTECIPADA'||/^Pago|Pagamento agendado/.test(k)?'#1C7EBE':'#8FC3E6'};border-radius:99px"></i></div>
       <b style="text-align:right">${n}</b></div>`).join('');
 }
 function viewGerencial(){
@@ -1969,7 +2074,8 @@ async function upProcx(file,wb){
 function baseRows(head,rows){
   const c=k=>colIdx(head,k), iM=c(A_MAT), iE=c(A_EXE);
   const ix={cliente:c(['cliente','nomcliente','nomedocliente','razaosocial','nome']),curva:c(['curvafinal','curva']),carteira:c(['carteira']),utilizacao:c(['utilizacao','subcategoria','segmento']),
-    sit_ligacao:c(['sitligacao','situacaoligacao','situacao']),bairro:c(['bairro','nombairro']),regiao:c(['regiao','diretoria','spe','superintendencia']),perfil:c(['perfildocliente','perfildepagamento','perfil'])};
+    sit_ligacao:c(['sitligacao','situacaoligacao','situacao']),bairro:c(['bairro','nombairro']),regiao:c(['regiao','diretoria','spe','superintendencia']),perfil:c(['perfildocliente','perfildepagamento','perfil']),
+    superintendencia:c(['superintendencia','superintendencias','superint','sup']),agrupamento:c(['agrupamento','agrupamentos','agrupamentocarteira','grupo'])};
   return rows.map(r=>{ const m=toMat(r[iM]), e=String(r[iE]??'').trim(); if(!m||!e||e==='#N/A') return null;
     const o={matricula:m,executivo:e}; for(const k in ix) o[k]=ix[k]>=0&&r[ix[k]]!=null?String(r[ix[k]]).trim():null; return o; }).filter(Boolean);
 }
@@ -2030,7 +2136,7 @@ async function upLacuna(file){
     for(const sn of wb.SheetNames){ const x=sheetRows(wb.Sheets[sn]); if(colIdx(x.head,A_MAT)>=0&&colIdx(x.head,A_EXE)>=0&&colIdx(x.head,['valordafatura','valor'])>=0){ head=x.head; rows=x.rows; break; } }
     if(!head) throw new Error('Não encontrei a aba com Matrícula, Executivo e Valor da Fatura.');
     const c=k=>colIdx(head,k);
-    const ix={m:c(A_MAT),cli:c(['cliente','nomecliente']),car:c(['carteira']),ex:c(A_EXE),ven:c(['vencimentooriginal','vencimento']),val:c(['valordafatura','valor'])};
+    const ix={m:c(A_MAT),cli:c(['cliente','nomecliente']),car:c(['carteira']),ex:c(A_EXE),ven:c(['vencimentooriginal','vencimento']),val:c(['valordafatura','valor']),pf:c(['perfildocliente','perfildepagamento','perfilcliente','perfil'])};
     const g=(r,k)=>ix[k]>=0?r[ix[k]]:null, txt=v=>v==null||v===''||v==='#N/A'?null:String(v).trim();
     let semVenc=0;
     const exist=Object.fromEntries(S.acao.filter(a=>a.acao_id===3).map(a=>[a.matricula,a]));
@@ -2038,7 +2144,7 @@ async function upLacuna(file){
       let ven=toISO(g(r,'ven')); if(ven&&ven<'2000') { ven=null; } if(!ven) semVenc++;
       const sit=s?.situacao==='CORTADA'?'Cortada':s?.situacao==='ATIVA'?'Ativa':(e?.sit_ligacao??null);
       return [m,{acao_id:3,matricula:m,cliente:txt(g(r,'cli')),carteira:txt(g(r,'car')),utilizacao:txt(g(r,'car')),executivo:txt(g(r,'ex')),vencimento:ven,valor:toNum(g(r,'val')),
-        sit_ligacao:sit, perfil_cliente:perfilDe(m,e)||null,
+        sit_ligacao:sit, perfil_cliente:txt(g(r,'pf'))||perfilDe(m,e)||null,
         status_atuacao:e?.status_atuacao??null, fatura_antecipada:e?.fatura_antecipada??null, novo_vencimento:e?.novo_vencimento??null, observacao:e?.observacao??null,
         status:e?e.status:'Não iniciado', status_origem:e?e.status_origem:'base'}]; }).filter(Boolean)).values()];
     const naoVieram=Object.values(exist).filter(a=>!novos.some(n=>n.matricula===a.matricula));
@@ -2158,6 +2264,8 @@ async function tentaConsumo(wb,file){
     });
     if(!out.length) throw new Error('A aba de Consumo Estratégico não tem linhas válidas.');
     const uniq=[...new Map(out.map(r=>[r.executivo+r.competencia,r])).values()];
+    // mantém o que a gestão editou manualmente
+    uniq.forEach(u=>{ const ant=S.consumo.find(x=>x.executivo===u.executivo&&x.competencia===u.competencia); if(ant&&/^Ajuste da gestão/.test(ant.fonte||'')){ u.status=ant.status; u.justificado=ant.justificado; u.motivo=ant.motivo; u.fonte=ant.fonte; } });
     for(let i=0;i<uniq.length;i+=500){ const {error}=await sb.from('plr_consumo').upsert(uniq.slice(i,i+500),{onConflict:'executivo,competencia'}); if(error) throw error; }
     await sb.from('cargas').insert({tipo:'plr_consumo',competencia:uniq.map(u=>u.competencia).sort().at(-1),arquivo:file.name,linhas:uniq.length,detalhe:{aprovados:uniq.filter(u=>u.status==='Aprovado').length,reprovados:uniq.filter(u=>u.status==='Reprovado').length,justificados:uniq.filter(u=>u.status==='Justificado').length}});
     const conhecidos=new Set(execList()), fora=[...new Set(uniq.map(u=>u.executivo).filter(x=>!conhecidos.has(x)))];
