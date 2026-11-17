@@ -315,6 +315,10 @@
   table.fix tbody tr:hover td:first-child{ background:#F4F9FD; }
   .fc{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:270px; max-width:340px; }
   .fci{ min-width:0; flex:1; } .fci .cli{ max-width:230px; }
+  .pz{ display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:99px; margin-top:6px; width:max-content; }
+  .pz-ok{ background:var(--water-soft); color:var(--water); } .pz-a{ background:var(--amber-soft); color:var(--amber); } .pz-v{ background:var(--rose-soft); color:var(--rose); }
+  .prazo-b{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 14px; margin-top:14px; padding:10px 14px; border-radius:12px; font-size:13px; color:var(--navy); }
+  .prazo-b .pz{ margin-top:0; background:#fff; }
 </style>
 </head>
 <body>
@@ -571,6 +575,7 @@ async function loadAll(){
   if(S.gestao) S.usuarios=await fetchAll(()=>sb.from('usuarios').select('*').order('papel').order('nome'));
   try{ S.saldo=await fetchAll(()=>sb.from('saldo_contas').select('*').order('matricula')); }catch(_){ S.saldo=[]; }
   idxSaldo();
+  try{ const {data}=await sb.from('acoes').select('*'); S.acoes=data||[]; }catch(_){ S.acoes=[]; }
   if(typeof carregaPerfilCart==='function') await carregaPerfilCart();
   try{ const fx=await fetchAll(()=>sb.from('fotos_executivos').select('executivo,foto')); S.fotos=Object.fromEntries(fx.map(f=>[f.executivo,f.foto])); }catch(_){ S.fotos={}; }
   S.loaded=true;
@@ -582,6 +587,7 @@ async function reload(part){
   else if(part==='plr') S.plr=await fetchAll(()=>sb.from('plr_resultados').select('*'));
   else if(part==='saldo'){ S.saldo=await fetchAll(()=>sb.from('saldo_contas').select('*').order('matricula')); idxSaldo(); }
   else if(part==='consumo') S.consumo=await fetchAll(()=>sb.from('plr_consumo').select('*').order('competencia'));
+  else if(part==='acoes'){ const {data}=await sb.from('acoes').select('*'); S.acoes=data||[]; }
   else if(part==='cargas') S.cargas=await fetchAll(()=>sb.from('cargas').select('*').order('enviado_em',{ascending:false}));
   else if(part==='usuarios') S.usuarios=await fetchAll(()=>sb.from('usuarios').select('*').order('papel').order('nome'));
 }
@@ -746,11 +752,28 @@ function fin(k,val){ const a=fArr(k); return !a.length||a.includes(val); }
 function setF(k,v){ if(F_MULTI.includes(k)){ const a=fArr(k), i=a.indexOf(v); if(i>=0) a.splice(i,1); else a.push(v); } else S.f[k]=(S.f[k]===v?'':v); render(); }
 function limparF(){ F_MULTI.forEach(k=>S.f[k]=[]); S.f.motivo=''; S.f.k=''; render(); }
 function fAtivos(){ return F_MULTI.reduce((n,k)=>n+fArr(k).length,0)+(S.f.motivo?1:0); }
+/* ---------- prazo das ações ---------- */
+function prazoDe(id){ return (S.acoes||[]).find(a=>a.id===id)?.prazo||null; }
+function diasAte(d){ const h=new Date(); h.setHours(0,0,0,0); return Math.round((new Date(d+'T00:00:00')-h)/864e5); }
+function prazoTag(id,curto){ const p=prazoDe(id); if(!p) return '';
+  const d=diasAte(p), cls=d<0?'pz-v':d<=2?'pz-a':'pz-ok', txt=d<0?`vencido há ${-d} dia${d===-1?'':'s'}`:d===0?'vence hoje':`falta${d>1?'m':''} ${d} dia${d>1?'s':''}`;
+  return `<span class="pz ${cls}">⏰ Prazo ${fdate(p)}${curto?'':` · ${txt}`}</span>`; }
+function prazoBanner(id,rowsAll,semFn){ const p=prazoDe(id);
+  if(!p) return S.gestao?`<div style="margin-top:12px"><button class="btn sec sm" onclick="setPrazo(${id})">⏰ Definir prazo desta ação</button></div>`:'';
+  const d=diasAte(p), sem=rowsAll.filter(semFn).length;
+  return `<div class="prazo-b ${d<0?'pz-v':d<=2?'pz-a':'pz-ok'}">${prazoTag(id)}<span>${sem?`<b>${int(sem)}</b> matrícula(s) ainda sem atuação${d<0?' · prazo encerrado':''}`:'Todas as matrículas já têm atuação ✓'}</span>${S.gestao?`<button class="link" onclick="setPrazo(${id})">alterar prazo</button>`:''}</div>`; }
+async function setPrazo(id){
+  const at=prazoDe(id), v=prompt('Prazo da ação (dd/mm/aaaa). Deixe vazio para tirar o prazo.', at?fdate(at):'');
+  if(v===null) return; let iso=null;
+  if(v.trim()){ const m=v.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); if(!m) return toast('Use o formato dd/mm/aaaa.',true);
+    iso=`${m[3].length===2?'20'+m[3]:m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
+  const {error}=await sb.from('acoes').update({prazo:iso}).eq('id',id); if(error) return toast(error.message,true);
+  await reload('acoes'); toast(iso?'Prazo salvo: '+fdate(iso):'Prazo removido'); render(); }
 function cardsAcoes(){
   const a1=acaoDe(1), a2=acaoDe(2), a3=acaoDe(3), a4=acaoDe(4);
   const atu=a=>a.filter(r=>r.status!=='Não iniciado'||r.status_atuacao).length;
   const card=(id,tit,sub,n,val,extra)=>`<button class="acard ${S.acaoSel===id?'on':''}" onclick="selAcao(${typeof id==='string'?`'${id}'`:id})">
-     <span class="at">${tit}</span><span class="as">${sub}</span>
+     <span class="at">${tit}</span><span class="as">${sub}</span>${typeof id==='number'?prazoTag(id,true):''}
      <span class="an"><b>${int(n)}</b> matrículas · ${money(val)}</span>${extra}</button>`;
   return `<div class="acards">
     ${card(1,'Ação 1 · Recuperação + TOP 100','Recuperação 2500 economias + TOP 100 saldos em aberto',a1.length,a1.reduce((s,r)=>s+(+r.saldo_vencido||0),0),`<span class="ap">${a1.length?pct(atu(a1)/a1.length,0):'—'} atuadas${barra(atu(a1),a1.length||1,'var(--leaf)')}</span>`)}
@@ -762,16 +785,16 @@ function cardsAcoes(){
 function viewAcao(){
   const head=`<div class="sec-h"><div><h2>Plano de Atuação</h2><p>Escolha a ação. Se a matrícula estiver em outra ação, a atuação de lá aparece junto.</p></div>
     <div class="acts"><button class="btn sec sm" onclick="exportAcao()">⬇ Exportar Excel</button></div></div>${cardsAcoes()}`;
-  if(S.acaoSel===2) return head+viewCobranca();
-  if(S.acaoSel===3) return head+viewLacuna();
-  if(S.acaoSel===4) return head+viewProjecao();
+  if(S.acaoSel===2) return head+prazoBanner(2,acaoDe(2),r=>!r.status_atuacao)+viewCobranca();
+  if(S.acaoSel===3) return head+prazoBanner(3,acaoDe(3),r=>!(r.status_atuacao||r.fatura_antecipada))+viewLacuna();
+  if(S.acaoSel===4) return head+prazoBanner(4,acaoDe(4),r=>!r.status_atuacao)+viewProjecao();
   const all=acaoDe(1), rows=acaoFiltrada();
   const sum=a=>a.reduce((s,r)=>s+(+r.saldo_vencido||0),0);
   const cnt=k=>all.filter(r=>r.status===k);
   const ganhos=all.filter(r=>['Recuperado','Pagamento identificado','Acordo aceito'].includes(r.status));
   const pipe=['Não iniciado','Em atuação','Proposta enviada','Acordo aceito','Em aprovação','Recuperado','Pagamento identificado','Cancelamento de débito','Encaminhado jurídico','Não factível','Proposta recusada'];
   const orig=[['','Todas'],['TOP 100 Saldo','TOP 100'],['2500 Economias','2500 Economias'],['TOP 100 + 2500','Nas duas bases']];
-  return head+`
+  return head+prazoBanner(1,all,r=>r.status==='Não iniciado')+`
   <div class="kpis">
     ${kc('','hero-k',`<div class="l">Matrículas na ação</div><div class="v">${int(all.length)}</div><div class="s">${int(all.filter(r=>r.origem==='TOP 100 + 2500').length)} nas duas bases</div>`)}
     ${kc('cort','c2',`<div class="l">Cortadas</div><div class="v">${int(all.filter(r=>r.sit_ligacao==='Cortada').length)}</div><div class="s">${money(sum(all.filter(r=>r.sit_ligacao==='Cortada')))} de ${money(sum(all))} vencido</div>`)}
