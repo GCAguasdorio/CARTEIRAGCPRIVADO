@@ -255,8 +255,8 @@
   .plat .btn{ margin-left:auto; }
   .cadpes-k{ margin:0; grid-template-columns:1fr 1fr; }
   .cadpes-k .k:first-child{ grid-column:1/-1; }
-  .acards{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px; }
-  @media(max-width:900px){ .acards{ grid-template-columns:1fr; } }
+  .acards{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:18px; }
+  @media(max-width:1180px){ .acards{ grid-template-columns:repeat(2,1fr); } } @media(max-width:700px){ .acards{ grid-template-columns:1fr; } }
   .acard{ text-align:left; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; display:flex; flex-direction:column; gap:4px; transition:.15s; box-shadow:var(--shadow-xs); }
   .acard:hover{ border-color:var(--water); }
   .acard.on{ border-color:var(--navy); box-shadow:inset 0 0 0 1px var(--navy), var(--shadow-sm); background:linear-gradient(180deg,var(--water-soft),var(--surface) 70%); }
@@ -265,7 +265,7 @@
   .acard .an{ font-size:13px; color:var(--text); margin-top:6px; } .acard .an b{ font-family:var(--font-display); font-size:18px; color:var(--navy); }
   .acard .ap{ font-size:12px; color:var(--text-mut); font-weight:600; }
   .xb{ display:inline-block; border-radius:7px; padding:2px 7px; font-size:11px; font-weight:700; margin:1px 0; white-space:normal; }
-  .xb1{ background:var(--navy); color:#fff; } .xb2{ background:var(--amber-soft); color:var(--amber); } .xb3{ background:var(--water-soft); color:var(--water); } .xb4{ background:var(--leaf-soft); color:var(--leaf); }
+  .xb1{ background:var(--navy); color:#fff; } .xb2{ background:var(--amber-soft); color:var(--amber); } .xb3{ background:var(--water-soft); color:var(--water); } .xbr{ background:var(--leaf-soft); color:var(--leaf); } .xb4{ background:#EEEAF8; color:#5B4B9A; }
   .avatar{ border-radius:50%; object-fit:cover; flex-shrink:0; display:inline-block; vertical-align:middle; background:var(--water-soft); }
   .avatar.ini{ display:inline-grid; place-items:center; background:linear-gradient(160deg,var(--navy-3),var(--water)); color:#fff; font-family:var(--font-display); font-weight:800; }
   .pessoa{ display:inline-flex; align-items:center; gap:8px; font-weight:600; }
@@ -294,7 +294,7 @@
   .lupa-cab{ display:flex; align-items:center; gap:12px; margin:16px 0 12px; } .lupa-cab b{ display:block; font-family:var(--font-display); color:var(--navy); font-size:15px; }
   .lupa-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; }
   .lupa-ac{ border:1px solid var(--border); border-left:4px solid var(--water-line); border-radius:12px; padding:12px 14px; background:var(--surface); display:flex; flex-direction:column; gap:8px; }
-  .lupa-ac.xbd1{ border-left-color:var(--navy); } .lupa-ac.xbd2{ border-left-color:var(--amber); } .lupa-ac.xbd3{ border-left-color:var(--water); } .lupa-ac.xbd4{ border-left-color:var(--leaf); }
+  .lupa-ac.xbd1{ border-left-color:var(--navy); } .lupa-ac.xbd2{ border-left-color:var(--amber); } .lupa-ac.xbd3{ border-left-color:var(--water); } .lupa-ac.xbdr{ border-left-color:var(--leaf); } .lupa-ac.xbd4{ border-left-color:#5B4B9A; }
   .lupa-ac .lt{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-weight:800; font-size:13px; color:var(--navy); }
   .lupa-ac .ld{ display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:12px; }
   .lupa-ac .ld span{ display:block; color:var(--text-faint); font-size:11px; } .lupa-ac .ld b{ color:var(--navy); font-weight:700; }
@@ -666,7 +666,11 @@ S.acaoSel = 1;
 const L_STATUS_LACUNA = ['PAGO','DÉBITO AUTOMÁTICO','PARCELADO','ISENTA','RESISTÊNCIA DO CLIENTE','CLIENTE INADIMPLENTE/CORTADO','FATURA ANTECIPADA',
   'CONTATO SEM SUCESSO/VISITA','FATURA EM CONTESTAÇÃO','JÁ POSSUI FATURA PARA O MÊS VIGENTE','AGUARDANDO O RETORNO DO CLIENTE','FATURÃO',
   'EM CONTATO COM O CLIENTE, INFORMA QUE O PG JÁ ESTAVA PROGRAMADO'];
-const NOME_ACAO = {1:'Ação 1', 2:'Cobrança', 3:'Lacuna'};
+const NOME_ACAO = {1:'Ação 1', 2:'Cobrança', 3:'Lacuna', 4:'Projeção'};
+const ACOES_IDS = [1,2,3,4];
+const L_STATUS_PROJ = ['Consumo Sazonal','Faturamento Pelo Mínimo','Obra Interna','Ocupação Elevada','Ocupação Reduzida','Projeção na Média de Consumo','Redução de Consumo / Período de Chuva','Vazamento Interno'];
+const proj = r => (r&&r.dados_origem&&r.dados_origem.proj)||{};
+function fmtM3(v){ return v==null||v===''?'—':(+v).toLocaleString('pt-BR',{maximumFractionDigits:0})+' m³'; }
 async function carregaPerfilCart(){ try{ const d=await fetchAll(()=>sb.from('carteira_base').select('matricula,perfil').not('perfil','is',null).order('matricula')); S.perfilCart=Object.fromEntries(d.map(x=>[x.matricula,x.perfil])); }catch(_){ S.perfilCart={}; } }
 function perfilDe(m,r){ return (S.perfilCart||{})[m] || (S.cart.base&&S.cart.base[m]&&S.cart.base[m].perfil) || (r&&r.perfil_cliente) || saldoMat(m)?.perfil || S.acao.find(x=>(x.acao_id===2||x.acao_id===1)&&x.matricula===m&&x.perfil_pagamento)?.perfil_pagamento || null; }
 const sd0=null;
@@ -674,21 +678,21 @@ const acaoDe = id => doExec(S.acao).filter(r=>r.acao_id===id);
 const saldoDe = () => doExec(S.saldo||[]);
 const saldoMat = m => (S.saldoIdx||{})[m];
 function idxSaldo(){ S.saldoIdx=Object.fromEntries((S.saldo||[]).map(s=>[s.matricula,s])); }
-function selAcao(v){ S.acaoSel=v; S.f={q:'',origem:'',sit:[],status:[],motivo:'',perfil:[],base:[],fa:[],perfil3:[],k:''}; render(); }
+function selAcao(v){ S.acaoSel=v; S.f={q:'',origem:'',sit:[],status:[],motivo:'',perfil:[],base:[],fa:[],perfil3:[],cart4:[],sp4:[],satu:[],k:''}; render(); }
 
 /* "Outras bases": atuação da matrícula nas demais bases */
 function outrasBases(m,atual){
   const t=[];
-  for(const id of [1,2,3]){ if(id===atual) continue; const a=S.acao.find(x=>x.acao_id===id&&x.matricula===m); if(!a) continue;
-    const det = id===1 ? (a.acao_executivo||'') : (a.status_atuacao||'sem atuação') + (id===2&&a.data_agendamento?` · ${fdate(a.data_agendamento)}`:'') + (id===3&&a.fatura_antecipada==='Sim'?` · novo venc. ${fdate(a.novo_vencimento)}`:'');
+  for(const id of ACOES_IDS){ if(id===atual) continue; const a=S.acao.find(x=>x.acao_id===id&&x.matricula===m); if(!a) continue;
+    const det = id===1 ? (a.acao_executivo||'') : (a.status_atuacao||'sem atuação') + (id===2&&a.data_agendamento?` · ${fdate(a.data_agendamento)}`:'') + (id===3&&a.fatura_antecipada==='Sim'?` · novo venc. ${fdate(a.novo_vencimento)}`:'')+(id===4&&a.valor!=null?` · Δ ${money2(a.valor)}`:'');
     t.push(`<span class="xb xb${id}" title="${esc([a.status,det,a.observacao].filter(Boolean).join(' · '))}">${NOME_ACAO[id]} · ${esc(id===1?a.status:(a.status_atuacao||a.status))}${id===1&&det?` · ${esc(det)}`:''}</span>`); }
-  const rc=S.recup.find(x=>x.matricula===m); if(rc) t.push(`<span class="xb xb4">Recuperação · ${esc(rc.status)}</span>`);
+  const rc=S.recup.find(x=>x.matricula===m); if(rc) t.push(`<span class="xb xbr">Recuperação · ${esc(rc.status)}</span>`);
   return t.join(' ')||'<span class="mat">—</span>';
 }
 function boxOutras(m,atual){
-  const ls=[1,2,3].filter(id=>id!==atual).map(id=>[id,S.acao.find(x=>x.acao_id===id&&x.matricula===m)]).filter(x=>x[1]);
+  const ls=ACOES_IDS.filter(id=>id!==atual).map(id=>[id,S.acao.find(x=>x.acao_id===id&&x.matricula===m)]).filter(x=>x[1]);
   if(!ls.length) return '';
-  const nomes={1:'Ação 1 (Recuperação + TOP 100)',2:'Ação de Cobrança',3:'Lacuna de Vencimento'};
+  const nomes={1:'Ação 1 (Recuperação + TOP 100)',2:'Ação de Cobrança',3:'Lacuna de Vencimento',4:'Projeção de Leitura'};
   return `<div class="card" style="margin:0 0 16px;background:var(--water-soft);border-color:var(--water-line)"><h3 style="margin-bottom:8px">Atuação em outras ações</h3>
     ${ls.map(([id,a])=>`<p style="margin-top:6px"><b>${nomes[id]}:</b> ${stPill(a.status)} ${esc(id===1?[a.acao_executivo,a.proposta,a.retorno_cliente].filter(Boolean).join(' · '):(a.status_atuacao||'sem atuação'))}${id===2&&a.data_agendamento?` · agendado ${fdate(a.data_agendamento)}`:''}${id===3&&a.fatura_antecipada?` · fatura antecipada: ${esc(a.fatura_antecipada)}${a.novo_vencimento?` (novo venc. ${fdate(a.novo_vencimento)})`:''}`:''}${a.observacao?`<br><span class="mat">${esc(a.observacao)}</span>`:''} <button class="link" onclick="openAtuar(${id},${m})">abrir</button></p>`).join('')}
   </div>`;
@@ -711,7 +715,8 @@ const K_FILTROS={
   2:{com:['Com atuação',r=>!!r.status_atuacao], sem:['Sem atuação',r=>!r.status_atuacao],
      agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()]},
   3:{com:['Com atuação',r=>!!(r.status_atuacao||r.fatura_antecipada)], sem:['Sem atuação',r=>!(r.status_atuacao||r.fatura_antecipada)],
-     ant:['Faturas antecipadas',r=>r.fatura_antecipada==='Sim'], pago:['Pagas',r=>r.status_atuacao==='PAGO']}
+     ant:['Faturas antecipadas',r=>r.fatura_antecipada==='Sim'], pago:['Pagas',r=>r.status_atuacao==='PAGO']},
+  4:{com:['Com atuação',r=>!!r.status_atuacao], sem:['Sem atuação',r=>!r.status_atuacao], fat:['Já faturadas',r=>proj(r).status==='Faturado'], prev:['Ainda em previsão',r=>proj(r).status!=='Faturado']}
 };
 function kOk(r){ const k=S.f.k; if(!k) return true; const d=K_FILTROS[S.acaoSel]?.[k]; return d?d[1](r):true; }
 function kc(key,cls,inner){ const on=(S.f.k||'')===key;
@@ -730,11 +735,11 @@ function acaoFiltrada(){
     fin('sit',r.sit_ligacao) && fin('status',r.status) && fin('perfil',r.perfil_pagamento) &&
     (!f.motivo || (f.motivo==='__sem'?!r.status_atuacao:r.status_atuacao===f.motivo)) &&
     fin('base',(r.base_origem||'').trim()) && fin('fa',r.fatura_antecipada||'__sem') &&
-    fin('perfil3',perfilDe(r.matricula,r)||'') &&
+    fin('perfil3',perfilDe(r.matricula,r)||'') && fin('cart4',r.carteira||'-') && fin('sp4',proj(r).status||'') && fin('satu',r.status_atuacao||'Sem atuação') &&
     (!q || norm(r.matricula).includes(q) || norm(r.cliente).includes(q) || norm(r.bairro).includes(q)))
-    .sort((a,b)=>S.acaoSel!==1?(+b.valor||0)-(+a.valor||0):0);
+    .sort((a,b)=>S.acaoSel===4?(+a.valor||0)-(+b.valor||0):S.acaoSel!==1?(+b.valor||0)-(+a.valor||0):0);
 }
-const F_MULTI=['sit','perfil','base','fa','perfil3','status'];
+const F_MULTI=['sit','perfil','base','fa','perfil3','status','cart4','sp4','satu'];
 function fArr(k){ let x=S.f[k]; if(!Array.isArray(x)) x=S.f[k]=(x?[x]:[]); return x; }
 function fon(k,v){ return fArr(k).includes(v); }
 function fin(k,val){ const a=fArr(k); return !a.length||a.includes(val); }
@@ -742,7 +747,7 @@ function setF(k,v){ if(F_MULTI.includes(k)){ const a=fArr(k), i=a.indexOf(v); if
 function limparF(){ F_MULTI.forEach(k=>S.f[k]=[]); S.f.motivo=''; S.f.k=''; render(); }
 function fAtivos(){ return F_MULTI.reduce((n,k)=>n+fArr(k).length,0)+(S.f.motivo?1:0); }
 function cardsAcoes(){
-  const a1=acaoDe(1), a2=acaoDe(2), a3=acaoDe(3);
+  const a1=acaoDe(1), a2=acaoDe(2), a3=acaoDe(3), a4=acaoDe(4);
   const atu=a=>a.filter(r=>r.status!=='Não iniciado'||r.status_atuacao).length;
   const card=(id,tit,sub,n,val,extra)=>`<button class="acard ${S.acaoSel===id?'on':''}" onclick="selAcao(${typeof id==='string'?`'${id}'`:id})">
      <span class="at">${tit}</span><span class="as">${sub}</span>
@@ -751,6 +756,7 @@ function cardsAcoes(){
     ${card(1,'Ação 1 · Recuperação + TOP 100','Recuperação 2500 economias + TOP 100 saldos em aberto',a1.length,a1.reduce((s,r)=>s+(+r.saldo_vencido||0),0),`<span class="ap">${a1.length?pct(atu(a1)/a1.length,0):'—'} atuadas${barra(atu(a1),a1.length||1,'var(--leaf)')}</span>`)}
     ${card(2,'Ação de Cobrança','Frustrantes do mês + base de oportunidade da cobrança',a2.length,a2.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a2.length?pct(atu(a2)/a2.length,0):'—'} atuadas${barra(atu(a2),a2.length||1,'var(--leaf)')}</span>`)}
     ${card(3,'Lacuna de Vencimento','Clientes que pularam o vencimento no mês · puxar para dentro do mês',a3.length,a3.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a3.length?pct(atu(a3)/a3.length,0):'—'} atuadas · ${int(a3.filter(r=>r.fatura_antecipada==='Sim').length)} faturas antecipadas${barra(atu(a3),a3.length||1,'var(--leaf)')}</span>`)}
+    ${card(4,'Projeção de Leitura','Ofensores negativos · vão fechar o mês abaixo do orçado · atuação preventiva',a4.length,a4.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a4.length?pct(atu(a4)/a4.length,0):'—'} atuadas${barra(atu(a4),a4.length||1,'var(--leaf)')}</span>`)}
   </div>`;
 }
 function viewAcao(){
@@ -758,6 +764,7 @@ function viewAcao(){
     <div class="acts"><button class="btn sec sm" onclick="exportAcao()">⬇ Exportar Excel</button></div></div>${cardsAcoes()}`;
   if(S.acaoSel===2) return head+viewCobranca();
   if(S.acaoSel===3) return head+viewLacuna();
+  if(S.acaoSel===4) return head+viewProjecao();
   const all=acaoDe(1), rows=acaoFiltrada();
   const sum=a=>a.reduce((s,r)=>s+(+r.saldo_vencido||0),0);
   const cnt=k=>all.filter(r=>r.status===k);
@@ -770,7 +777,7 @@ function viewAcao(){
     ${kc('cort','c2',`<div class="l">Cortadas</div><div class="v">${int(all.filter(r=>r.sit_ligacao==='Cortada').length)}</div><div class="s">${money(sum(all.filter(r=>r.sit_ligacao==='Cortada')))} de ${money(sum(all))} vencido</div>`)}
     ${kc('atu','c3',`<div class="l">Já atuadas</div><div class="v">${int(all.length-cnt('Não iniciado').length)}</div><div class="s">${all.length?pct(1-cnt('Não iniciado').length/all.length,0):'—'} da ação</div>`)}
     ${kc('ganho','c1',`<div class="l">Recuperado / pago / acordo</div><div class="v">${int(ganhos.length)}</div><div class="s">${money(sum(ganhos))} de saldo</div>`)}
-    ${kc('outra','c5',`<div class="l">Também em outra ação</div><div class="v">${int(all.filter(r=>S.acao.some(x=>x.acao_id!==1&&x.matricula===r.matricula)).length)}</div><div class="s">Cobrança ou Lacuna</div>`)}
+    ${kc('outra','c5',`<div class="l">Também em outra ação</div><div class="v">${int(all.filter(r=>S.acao.some(x=>x.acao_id!==1&&x.matricula===r.matricula)).length)}</div><div class="s">Cobrança, Lacuna ou Projeção</div>`)}
   </div>
   <div class="card" style="margin-top:18px"><h3>Status da Ação 1 <small>clique numa barra para filtrar a tabela</small></h3>${barrasLaterais(pipe.concat([...new Set(all.map(r=>r.status))].filter(x=>!pipe.includes(x))).map(p=>[p,cnt(p).length,sum(cnt(p))]).filter(x=>x[1]),'status')}</div>
   <div class="toolbar">
@@ -780,7 +787,7 @@ function viewAcao(){
   </div>
   ${kAviso()}<div id="acaoTb">${acaoTable(rows)}</div>`;
 }
-function refreshAcaoTable(){ $('acaoTb').innerHTML=S.acaoSel===2?cobTable(acaoFiltrada()):S.acaoSel===3?lacTable(acaoFiltrada()):acaoTable(acaoFiltrada()); }
+function refreshAcaoTable(){ $('acaoTb').innerHTML=S.acaoSel===2?cobTable(acaoFiltrada()):S.acaoSel===3?lacTable(acaoFiltrada()):S.acaoSel===4?projTable(acaoFiltrada()):acaoTable(acaoFiltrada()); }
 function afterAcao(){}
 function acaoTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
@@ -878,6 +885,46 @@ function lacTable(rows){
   </tbody></table></div><p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}</p>`;
 }
 
+/* ---------- Projeção de Leitura (acao 4) ---------- */
+function viewProjecao(){
+  const all=acaoDe(4), rows=acaoFiltrada(), val=a=>a.reduce((s,r)=>s+(+r.valor||0),0);
+  if(!all.length) return `<div class="card empty"><b>Sem base de Projeção de Leitura</b>${S.gestao?'Anexe a base em Gestão › Cargas.':'A gestão ainda não carregou a base.'}</div>`;
+  const com=all.filter(r=>r.status_atuacao), fat=all.filter(r=>proj(r).status==='Faturado');
+  const carts=[...new Set(all.map(r=>r.carteira||'-'))].sort(), sps=[...new Set(all.map(r=>proj(r).status).filter(Boolean))].sort();
+  const bars=[...L_STATUS_PROJ,...new Set(all.map(r=>r.status_atuacao).filter(x=>x&&!L_STATUS_PROJ.includes(x)))].map(k=>{ const x=all.filter(r=>r.status_atuacao===k); return [k,x.length,val(x)]; }).filter(x=>x[1]);
+  const sem=all.filter(r=>!r.status_atuacao);
+  return `<div class="msg info" style="margin-top:18px">Clientes que, pelo consumo atual, vão <b>fechar o mês abaixo do orçado</b>. É uma atuação <b>preventiva</b>: entenda o motivo com o cliente e registre o status${all[0]?.dados_origem?.ref?` · base ${esc(all[0].dados_origem.ref)}`:''}.</div>
+  <div class="kpis">
+    ${kc('','hero-k',`<div class="l">Matrículas na projeção</div><div class="v">${int(all.length)}</div><div class="s">${money(val(all))} de Δ projetado</div>`)}
+    ${kc('com','c3',`<div class="l">Com atuação</div><div class="v">${int(com.length)}</div><div class="s">${pct(com.length/all.length,0)} · ${money(val(com))}</div>${barra(com.length,all.length,'var(--leaf)')}`)}
+    ${kc('sem','c4',`<div class="l">Sem atuação</div><div class="v">${int(sem.length)}</div><div class="s">${money(val(sem))}</div>`)}
+    ${kc('prev','c2',`<div class="l">Ainda em previsão</div><div class="v">${int(all.length-fat.length)}</div><div class="s">leitura do mês ainda não faturada</div>`)}
+    ${kc('fat','c5',`<div class="l">Já faturadas</div><div class="v">${int(fat.length)}</div><div class="s">${money(val(fat))}</div>`)}
+  </div>
+  <div class="card" style="margin-top:18px"><h3>Status de atuação <small>clique em uma ou mais barras para filtrar</small></h3>${barrasLaterais([...(sem.length?[['Sem atuação',sem.length,val(sem)]]:[]),...bars],'satu')}</div>
+  <div class="toolbar">
+    <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula, cliente ou bairro" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
+    <div class="chips"><span class="mat" style="font-weight:700;align-self:center">Carteira:</span>${carts.map(v=>`<button class="chip ${fon('cart4',v)?'on':''}" onclick="setF('cart4','${esc(v)}')">${esc(v)}</button>`).join('')}</div>
+    <div class="chips"><span class="mat" style="font-weight:700;align-self:center">Leitura:</span>${sps.map(v=>`<button class="chip ${fon('sp4',v)?'on':''}" onclick="setF('sp4','${esc(v)}')">${esc(v)}</button>`).join('')}</div>
+  </div>
+  ${kAviso()}<div id="acaoTb">${projTable(rows)}</div>`;
+}
+function projTable(rows){
+  if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
+  const ge=S.gestao&&!execFoco();
+  return `<div class="scroll"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th class="r" title="Classificação do ofensor na planilha">Classif.</th><th>Carteira</th><th>SUP / bairro</th><th class="r">Vol. orçado</th><th class="r">Vol. previsto</th><th class="r">Δ volume</th>
+    <th class="r">Fat. orçado</th><th class="r">Fat. previsto</th><th class="r">Δ R$</th><th>Leitura</th><th>Status de atuação</th><th>Outras ações</th></tr></thead><tbody>
+    ${rows.map(r=>{ const p=proj(r), dv=p.vol_orc?(p.vol_prev-p.vol_orc)/p.vol_orc:null;
+      return `<tr><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula}${r.sit_ligacao==='Cortada'?' · <span class="sit-c">Cortada</span>':''}</span></div><button class="btn sm" onclick="openAtuar(4,${r.matricula})">Atuar</button></div></td>${ge?`<td>${r.executivo?pessoa(r.executivo):'<span class="mat">sem executivo</span>'}</td>`:''}
+      <td class="r mat">${r.prioridade??''}</td><td>${esc(r.carteira||'—')}</td><td>${esc(r.regiao||'—')}<br><span class="mat">${esc(r.bairro||'')}</span></td>
+      <td class="r num">${fmtM3(p.vol_orc)}</td><td class="r num">${fmtM3(p.vol_prev)}</td><td class="r num" style="color:var(--rose)">${fmtM3(p.delta_vol)}${dv!=null?`<br><span class="mat">${pct(dv,0)}</span>`:''}</td>
+      <td class="r num">${money2(p.fat_orc)}</td><td class="r num">${money2(p.fat_prev)}</td><td class="r num" style="color:var(--rose);font-weight:700">${money2(r.valor)}</td>
+      <td>${p.status?`<span class="pill nopt ${p.status==='Faturado'?'st-3':'st-1'}">${esc(p.status)}</span>`:'—'}</td>
+      <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}${r.observacao?`<br><span class="mat">${esc(r.observacao.slice(0,80))}</span>`:''}</td>
+      <td class="wrap-c">${outrasBases(r.matricula,4)}</td></tr>`; }).join('')}
+  </tbody></table></div><p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · Δ ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}</p>`;
+}
+
 /* ---------- Saldo de Contas ---------- */
 S.sf={q:'',faixa:'',sit:'',cross:'',lim:100};
 function setSF(k,v){ S.sf[k]=(S.sf[k]===v?'':v); S.sf.lim=100; render(); }
@@ -935,6 +982,7 @@ function opts(list,val,blank='—'){ const l=[...list]; if(val&&!l.includes(val)
 
 function autoStatus(r){
   if(['Em aprovação','Recuperado','Pagamento identificado','Finalizado'].includes(r.status)) return r.status;
+  if(r.acao_id===4){ return (r.status_atuacao||r.observacao)?(r.status==='Não iniciado'?'Em atuação':r.status):r.status; }
   if(r.acao_id===3){
     const m=r.status_atuacao||'';
     if(m==='PAGO') return 'Pagamento identificado';
@@ -963,15 +1011,19 @@ function autoStatus(r){
 }
 async function openAtuar(aid,mat){
   const r=S.acao.find(x=>x.acao_id===aid&&x.matricula===mat); if(!r) return;
-  const rec=S.recup.filter(x=>x.matricula===mat), cob=aid===2, lac=aid===3;
-  const info = lac
+  const rec=S.recup.filter(x=>x.matricula===mat), cob=aid===2, lac=aid===3, pj=aid===4, P=proj(r);
+  const info = pj
+    ? [['Carteira',r.carteira],['SUP',r.regiao],['Bairro',r.bairro],['Volume orçado',fmtM3(P.vol_orc)],['Volume previsto',fmtM3(P.vol_prev)],['Δ volume',fmtM3(P.delta_vol)],['Faturamento orçado',money2(P.fat_orc)],['Faturamento previsto',money2(P.fat_prev)],['Δ faturamento',money2(r.valor)],['Leitura',P.status],['Classificação',r.prioridade!=null?r.prioridade+'º ofensor':null]]
+    : lac
     ? [['Carteira',r.carteira],['Vencimento original',fdate(r.vencimento)],['Valor da fatura',money2(r.valor)],['Perfil do cliente',perfilDe(mat,r)],['Situação',r.sit_ligacao]]
     : cob
     ? [['Carteira',r.carteira],['Vencimento',fdate(r.vencimento)],['Valor',money2(r.valor)],['Aging',r.aging!=null?r.aging+' dias':null],['Perfil de pagamento',r.perfil_pagamento],['Base',r.base_origem],['Situação',r.sit_ligacao],['Diretoria',r.regiao],['Pagou no mês',r.pagou_mes]]
     : [['Situação',r.sit_ligacao],['Saldo vencido',money2(r.saldo_vencido)],['Saldo a vencer',money2(r.saldo_a_vencer)],['Aging',r.aging!=null?r.aging+' dias':null],
        ['Economias',r.economias],['Curva',r.curva],['Região',r.regiao],['Bairro',r.bairro],['Utilização',r.utilizacao],['Cluster cortado',r.cluster_cortado],
        ['Macro',r.macro],['Perfil',r.perfil],['Análise',r.analise],['Plano de ação',r.plano_acao],['Tratativa',r.tratativa],['OS',r.os],['Prioridade',r.prioridade]];
-  const campos = lac ? `
+  const campos = pj ? `
+        <div class="fld full"><label>Status de atuação (motivo da queda de consumo)</label><select id="a_lst">${opts(L_STATUS_PROJ,r.status_atuacao)}</select></div>`
+    : lac ? `
         <div class="fld full"><label>Status</label><select id="a_lst">${opts(L_STATUS_LACUNA,r.status_atuacao)}</select></div>
         <div class="fld"><label>Fatura antecipada?</label><select id="a_fa" onchange="$('a_nvW').style.opacity=this.value==='Sim'?1:.45;$('a_nv').disabled=this.value!=='Sim'">${opts(['Sim','Não'],r.fatura_antecipada)}</select></div>
         <div class="fld" id="a_nvW" style="opacity:${r.fatura_antecipada==='Sim'?1:.45}"><label>Novo vencimento ajustado</label><input type="date" id="a_nv" value="${r.novo_vencimento||''}" ${r.fatura_antecipada==='Sim'?'':'disabled'}><span class="help">Preencha quando a fatura for antecipada.</span></div>`
@@ -987,7 +1039,7 @@ async function openAtuar(aid,mat){
         <div class="fld"><label>Prazo de retorno</label><input type="date" id="a_pra" value="${r.prazo_retorno||''}"></div>
         <div class="fld"><label>Revalidação de recuperação</label><select id="a_rev">${opts(L_REVAL,r.revalidacao)}</select></div>`;
   modal(`<div class="modal">
-    <div class="mh">${r.executivo?av(r.executivo,44):''}<div><h3>${esc(r.cliente)}</h3><p>Matrícula ${r.matricula} · ${esc(r.executivo||'')} · ${lac?'Lacuna de Vencimento':cob?'Ação de Cobrança':'Ação 1 · '+esc(r.origem||'')}</p></div><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mh">${r.executivo?av(r.executivo,44):''}<div><h3>${esc(r.cliente)}</h3><p>Matrícula ${r.matricula} · ${esc(r.executivo||'sem executivo')} · ${pj?'Projeção de Leitura':lac?'Lacuna de Vencimento':cob?'Ação de Cobrança':'Ação 1 · '+esc(r.origem||'')}</p></div><button class="x" onclick="closeModal()">×</button></div>
     <div class="mb">
       <div class="info-grid">${info.filter(x=>x[1]!=null&&x[1]!==''&&x[1]!=='—').map(([l,v])=>`<div><span>${l}</span><b>${esc(v)}</b></div>`).join('')}</div>
       ${boxOutras(mat,aid)}
@@ -1011,6 +1063,7 @@ async function openAtuar(aid,mat){
 async function saveAtuar(aid,mat){
   const r=S.acao.find(x=>x.acao_id===aid&&x.matricula===mat);
   const v=id=>$(id).value||null;
+  if(aid===4) return gravarAtuacao(aid,mat,r,{status_atuacao:v('a_lst'),observacao:v('a_obs')});
   if(aid===3){
     const fa=v('a_fa'), st3=v('a_lst');
     const upd3={status_atuacao:st3, fatura_antecipada: st3==='FATURA ANTECIPADA'?'Sim':fa, novo_vencimento:null, observacao:v('a_obs')};
@@ -1034,7 +1087,9 @@ async function gravarAtuacao(aid,mat,r,upd){
 function exportAcao(){
   const rows=acaoFiltrada(); let out, nome;
   const ob=m=>outrasBases(m,S.acaoSel).replace(/<[^>]+>/g,'').replace(/\s+/g,' ').replace(/^—$/,'').trim();
-  if(S.acaoSel===3){ nome='Lacuna_de_Vencimento';
+  if(S.acaoSel===4){ nome='Projecao_de_Leitura';
+    out=rows.map(r=>{ const p=proj(r); return {Classificação:r.prioridade,Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Carteira:r.carteira,SUP:r.regiao,Bairro:r.bairro,'Vol Orçado':p.vol_orc,'Vol Previsto':p.vol_prev,'Δ Volume':p.delta_vol,'Fat Orçado':p.fat_orc,'Fat Previsto':p.fat_prev,'Δ R$':+r.valor||0,Leitura:p.status,'Status de atuação':r.status_atuacao,Observação:r.observacao,'Outras ações':ob(r.matricula),'Atualizado em':fdt(r.atualizado_em)}; }); }
+  else if(S.acaoSel===3){ nome='Lacuna_de_Vencimento';
     out=rows.map(r=>({Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Carteira:r.carteira,'Vencimento original':r.vencimento,'Valor da fatura':+r.valor||0,'Perfil do cliente':perfilDe(r.matricula,r),'Fatura antecipada':r.fatura_antecipada,'Novo vencimento':r.novo_vencimento,Status:r.status_atuacao,Observação:r.observacao,'Status geral':r.status,'Outras ações':ob(r.matricula),'Atualizado em':fdt(r.atualizado_em)})); }
   else if(S.acaoSel==='saldo'){ nome='Saldo_de_Contas';
     out=rows.map(r=>({Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Carteira:r.carteira,'Saldo vencido':+r.saldo_vencido||0,'Notas vencidas':r.notas_vencidas,'Vencimento mais antigo':r.venc_mais_antigo,'Tipo de fatura':r.tipo_boleto,Aging:r.aging,Faixa:r.faixa,Diretoria:r.diretoria,Perfil:r.perfil,Classificação:r.classificacao,Situação:r.situacao,'Atuação em outras bases':ob(r.matricula)})); }
@@ -1220,7 +1275,7 @@ function lupaBusca(v){ S.lupa.q=v; S.lupa.m=null;
 function lupaEnter(){ const u=[...lupaUniverso().keys()], dig=S.lupa.q.replace(/\D/g,'');
   const hit=u.includes(+dig)?+dig:(()=>{ const b=$('lupaRes').querySelector('.lupa-sug button'); return b?+b.querySelector('b').textContent:null; })();
   if(hit) lupaAbrir(hit); else if(dig) lupaAbrir(+dig); }
-const NOME_ACAO_L={1:'Ação 1 · Recuperação + TOP 100',2:'Ação de Cobrança',3:'Lacuna de Vencimento'};
+const NOME_ACAO_L={1:'Ação 1 · Recuperação + TOP 100',2:'Ação de Cobrança',3:'Lacuna de Vencimento',4:'Projeção de Leitura'};
 const CAMPO_L={status:'Status',status_atuacao:'Status de atuação',data_agendamento:'Agendamento',fatura_antecipada:'Fatura antecipada',novo_vencimento:'Novo vencimento',
   acao_executivo:'Ação do executivo',proposta:'Proposta',estagio:'Estágio',retorno_cliente:'Retorno do cliente',data_envio:'Data do envio',prazo_retorno:'Prazo de retorno',revalidacao:'Revalidação',observacao:'Observação'};
 async function lupaAbrir(m){
@@ -1241,6 +1296,7 @@ function lupaDetalhe(m,hist){
     else { d.push(['Status de atuação',a.status_atuacao||'Sem atuação']);
       if(a.acao_id===2){ a.data_agendamento&&d.push(['Agendamento',fdate(a.data_agendamento)]); a.base_origem&&d.push(['Base',a.base_origem.trim()]); }
       if(a.acao_id===3){ a.fatura_antecipada&&d.push(['Fatura antecipada',a.fatura_antecipada]); a.novo_vencimento&&d.push(['Novo vencimento',fdate(a.novo_vencimento)]); }
+      if(a.acao_id===4){ const p=proj(a); d.push(['Δ faturamento',money2(a.valor)],['Vol. previsto x orçado',`${fmtM3(p.vol_prev)} / ${fmtM3(p.vol_orc)}`]); p.status&&d.push(['Leitura',p.status]); return d; }
       a.valor!=null&&d.push([a.acao_id===3?'Valor da fatura':'Valor',money2(a.valor)]); a.vencimento&&d.push(['Vencimento',fdate(a.vencimento)]); }
     return d; };
   const semAt=a=>a.acao_id===1?a.status==='Não iniciado':!(a.status_atuacao||a.fatura_antecipada);
@@ -1251,7 +1307,7 @@ function lupaDetalhe(m,hist){
       ${a.observacao?`<p class="lo">${esc(a.observacao)}</p>`:''}
       <div class="lf"><span class="mat">${a.atualizado_em?'Atualizado em '+fdt(a.atualizado_em)+(a.atualizado_por?' · '+esc(a.atualizado_por):''):'Sem atualização na plataforma'}</span>
         <button class="btn sm" onclick="lupaAtuar(${a.acao_id},${m})">Atuar</button></div></div>`).join('')}
-    ${recs.map(r=>`<div class="lupa-ac xbd4"><div class="lt"><span>Recuperação de cortado</span>${stPill(r.status)}</div>
+    ${recs.map(r=>`<div class="lupa-ac xbdr"><div class="lt"><span>Recuperação de cortado</span>${stPill(r.status)}</div>
       <div class="ld">${[['Pagamento',r.tipo_pagamento+(r.parcelas?` (${r.parcelas}x)`:'')],['Saldo integral',money2(r.saldo_integral)],['Saldo c/ desconto',money2(r.saldo_desconto)],['Religação',r.data_religacao?fdate(r.data_religacao):null],['Case de sucesso',r.caso_sucesso?'Sim':null]].filter(x=>x[1]).map(([l,v])=>`<div><span>${l}</span><b>${esc(v)}</b></div>`).join('')}</div>
       ${r.resumo?`<p class="lo">${esc(r.resumo)}</p>`:''}${r.motivo_rejeicao?`<p class="lo">Motivo da rejeição: ${esc(r.motivo_rejeicao)}</p>`:''}
       <div class="lf"><span class="mat">Solicitada em ${fdt(r.criado_em)}${r.decidido_em?' · decidida em '+fdt(r.decidido_em):''}</span></div></div>`).join('')}
@@ -1288,18 +1344,20 @@ function carteiraGeralHTML(){
   </div>
   <div class="grid3">
     <div class="card"><h3>Ativo x Cortado <small>matrículas</small></h3><div class="chart-box"><canvas id="chSit"></canvas></div></div>
-    <div class="card"><h3>Por Superintendência <small>matrículas</small></h3>${temSup?`<div class="chart-box" style="height:${h(g.sup.length)}px"><canvas id="chSup"></canvas></div>`:'<p class="mat">A carteira do mês anexada não tem a coluna Superintendência. Anexe de novo em Gestão › Cargas com essa coluna.</p>'}</div>
-    <div class="card"><h3>Por Agrupamento <small>matrículas</small></h3>${temAgr?`<div class="chart-box" style="height:${h(g.agr.length)}px"><canvas id="chAgr"></canvas></div>`:'<p class="mat">A carteira do mês anexada não tem a coluna Agrupamento. Anexe de novo em Gestão › Cargas com essa coluna.</p>'}</div>
+    <div class="card"><h3>Por Superintendência <small>matrículas</small></h3>${temSup?`<div class="chart-box" style="height:${h(topN(g.sup).length)}px"><canvas id="chSup"></canvas></div>`:'<p class="mat">A carteira do mês anexada não tem a coluna Superintendência. Anexe de novo em Gestão › Cargas com essa coluna.</p>'}</div>
+    <div class="card"><h3>Por Agrupamento <small>matrículas · ${g.agr.length>TOPN+1?`${TOPN} maiores + outros`:""}</small></h3>${temAgr?`<div class="chart-box" style="height:${h(topN(g.agr).length)}px"><canvas id="chAgr"></canvas></div>`:'<p class="mat">A carteira do mês anexada não tem a coluna Agrupamento. Anexe de novo em Gestão › Cargas com essa coluna.</p>'}</div>
   </div>`;
 }
+const TOPN=14;
+function topN(l){ if(l.length<=TOPN+1) return l; const t=l.slice(0,TOPN), r=l.slice(TOPN); return [...t,[`Outros (${r.length})`,r.reduce((s,x)=>s+x[1],0)]]; }
 function drawGeralCharts(){
   if(!$('chSit')) return; const g=cartGeral();
   const corSit=k=>k==='Ativa'?AZ.medio:k==='Cortada'?AZ.escuro:AZ.claro;
   charts.sit=new Chart($('chSit'),{type:'doughnut',data:{labels:g.sit.map(x=>x[0]),datasets:[{data:g.sit.map(x=>x[1]),backgroundColor:g.sit.map(x=>corSit(x[0])),borderWidth:2,borderColor:'#fff'}]},
     options:{...clk(i=>listaCart('sit',g.sit[i][0])),maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'bottom'}}}});
   const barH=(id,el,rows)=>{ if(!$(el)) return; charts[id]=new Chart($(el),{type:'bar',data:{labels:rows.map(x=>x[0]),datasets:[{data:rows.map(x=>x[1]),backgroundColor:rows.map((x,i)=>x[0]==='Não informado'?AZ.palido:AZ_SEQ[Math.min(i,3)]),borderRadius:6,maxBarThickness:24}]},
-    options:{...clk(i=>listaCart(id,rows[i][0])),indexAxis:'y',maintainAspectRatio:false,layout:{padding:{right:84}},plugins:{legend:{display:false},rotulos:{fmt:v=>int(v)+' · '+pct(v/g.B.length,0)},tooltip:{callbacks:{label:c=>int(c.raw)+' matrículas · '+pct(c.raw/g.B.length,1)}}},scales:{x:{grid:{color:'#EEF3F6'},ticks:{precision:0}},y:{grid:{display:false}}}}}); };
-  barH('sup','chSup',g.sup); barH('agr','chAgr',g.agr);
+    options:{...clk(i=>listaCart(id,rows[i][0])),indexAxis:'y',maintainAspectRatio:false,layout:{padding:{right:84,left:6}},plugins:{legend:{display:false},rotulos:{fmt:v=>int(v)+' · '+pct(v/g.B.length,0)},tooltip:{callbacks:{label:c=>int(c.raw)+' matrículas · '+pct(c.raw/g.B.length,1)}}},scales:{x:{grid:{color:'#EEF3F6'},ticks:{precision:0}},y:{grid:{display:false},afterFit:sc=>{ sc.width=150; },ticks:{callback:function(v){ const t=this.getLabelForValue(v); return t.length>20?t.slice(0,19)+'…':t; }}}}}}); };
+  barH('sup','chSup',topN(g.sup)); barH('agr','chAgr',topN(g.agr));
 }
 
 /* ---------- rótulos de dados em todos os gráficos ---------- */
@@ -1353,8 +1411,9 @@ function listaCart(tipo,v,v2){
   const stLbl={Pagou:'Pagos','A vencer':'A vencer',Vencido:'Vencidos'};
   if(tipo==='total'){ L=L.filter(r=>r.naBase); tit='Todas as matrículas da carteira'; }
   else if(tipo==='sit'){ L=L.filter(r=>r.naBase&&r.sit===v); tit=`Situação: ${v}`; }
-  else if(tipo==='sup'){ L=L.filter(r=>r.naBase&&r.sup===v); tit=`Superintendência: ${v}`; }
-  else if(tipo==='agr'){ L=L.filter(r=>r.naBase&&r.agr===v); tit=`Agrupamento: ${v}`; }
+  else if(tipo==='sup'||tipo==='agr'){ const nm=tipo==='sup'?'Superintendência':'Agrupamento';
+    if(/^Outros \(/.test(v)){ const g=cartGeral(), top=new Set(g[tipo].slice(0,TOPN).map(x=>x[0])); L=L.filter(r=>r.naBase&&!top.has(r[tipo])); tit=`${nm}: demais (${v.replace(/\D/g,'')} grupos)`; }
+    else { L=L.filter(r=>r.naBase&&r[tipo]===v); tit=`${nm}: ${v}`; } }
   else if(tipo==='fat'){ L=L.filter(r=>r.status&&(!v||r.itens.some(f=>f.status===v))); tit=v?`Faturamento do mês · ${stLbl[v]}`:'Matrículas faturadas no mês'; }
   else if(tipo==='vplano'){ L=L.filter(r=>r.itens.some(f=>f.status==='Vencido')&&(v==='com'?emPlano(r.matricula):!emPlano(r.matricula))); tit=`Vencidos ${v} plano de atuação`; }
   else if(tipo==='venc'){ L=L.filter(r=>r.itens.some(f=>f.vencimento===v&&(!v2||f.status===v2))); tit=`Vencimento ${fdate(v)}${v2?' · '+stLbl[v2]:''}`; }
@@ -1907,11 +1966,12 @@ function barrasStatus(rows,campo){
       <b style="text-align:right">${n}</b></div>`).join('');
 }
 function viewGerencial(){
-  const a1=acaoDe(1), a2=acaoDe(2), a3=acaoDe(3);
-  const B=[[1,'Ação 1 · Recuperação + TOP 100',a1,'saldo vencido'],[2,'Ação de Cobrança',a2,'em aberto'],[3,'Lacuna de Vencimento',a3,'em faturas']];
+  const a1=acaoDe(1), a2=acaoDe(2), a3=acaoDe(3), a4=acaoDe(4);
+  const B=[[1,'Ação 1 · Recuperação + TOP 100',a1,'saldo vencido'],[2,'Ação de Cobrança',a2,'em aberto'],[3,'Lacuna de Vencimento',a3,'em faturas'],[4,'Projeção de Leitura',a4,'de Δ projetado']].filter(b=>b[0]!==4||b[2].length);
   const cardBase=([id,nome,rows,lbl])=>{ const R=resumoBase(rows), p=R.n?R.at/R.n:0;
     const extra = id===2 ? [...new Set(rows.map(r=>(r.base_origem||'').trim()).filter(Boolean))].map(b=>{ const x=rows.filter(r=>(r.base_origem||'').trim()===b); return `${esc(b)}: ${x.length}`; }).join(' · ')
                : id===3 ? `${int(rows.filter(r=>r.fatura_antecipada==='Sim').length)} faturas antecipadas · ${money(rows.filter(r=>r.fatura_antecipada==='Sim').reduce((s,r)=>s+(+r.valor||0),0))}`
+               : id===4 ? `${int(rows.filter(r=>proj(r).status==='Faturado').length)} já faturadas`
                : `${int(rows.filter(r=>r.sit_ligacao==='Cortada').length)} cortadas`;
     return `<div class="card" style="margin-top:0;cursor:pointer" onclick="S.acaoSel=${id};go('acao')">
       <h2>${nome}</h2><p class="sub">${int(R.n)} matrículas · ${money(R.vt)} ${lbl}${extra?` · ${extra}`:''}</p>
@@ -1921,15 +1981,15 @@ function viewGerencial(){
         <div class="k c2"><div class="l">Resultado positivo</div><div class="v">${int(R.pos)}</div><div class="s">${money(R.vpos)}</div></div></div>
       ${barra(R.at,R.n||1,semaforo(p))}
       <div style="margin-top:14px">${barrasStatus(rows,id===1?'status':'status_atuacao')}</div></div>`; };
-  const execs=[...new Set([...a1,...a2,...a3].map(r=>r.executivo).filter(x=>x&&!['Carteira Público','Judicial'].includes(x)))].sort((a,b)=>a.localeCompare(b,'pt'));
-  const linha=x=>{ const r=[1,2,3].map(id=>resumoBase(S.acao.filter(a=>a.acao_id===id&&a.executivo===x))); const sem=r.reduce((s,y)=>s+y.sem,0), n=r.reduce((s,y)=>s+y.n,0); return {x,r,sem,n}; };
+  const execs=[...new Set([...a1,...a2,...a3,...a4].map(r=>r.executivo).filter(x=>x&&!['Carteira Público','Judicial'].includes(x)))].sort((a,b)=>a.localeCompare(b,'pt'));
+  const linha=x=>{ const r=[1,2,3,4].map(id=>resumoBase(S.acao.filter(a=>a.acao_id===id&&a.executivo===x))); const sem=r.reduce((s,y)=>s+y.sem,0), n=r.reduce((s,y)=>s+y.n,0); return {x,r,sem,n}; };
   const L=execs.map(linha).sort((a,b)=>b.sem-a.sem);
   const cel=R=>R.n?`<td class="r">${int(R.n)}</td><td style="min-width:110px"><b style="color:${semaforo(R.at/R.n)}">${pct(R.at/R.n,0)}</b>${barra(R.at,R.n,semaforo(R.at/R.n))}</td>`:'<td class="r mat">—</td><td></td>';
   return `<div class="sec-h"><div><h2>Visão Gerencial</h2><p>Dashboard das bases de atuação e da carteira${execFoco()?` · ${esc(execFoco())}`:' · time todo'}</p></div></div>
-  <div class="grid3" style="margin-top:18px">${B.map(cardBase).join('')}</div>
+  <div class="${B.length===4?'grid2':'grid3'}" style="margin-top:18px;gap:18px">${B.map(cardBase).join('')}</div>
   <div class="card"><h2>Por executivo</h2><p class="sub">Ordenado por quem tem mais matrículas sem atuação · clique no nome para ver a visão do executivo</p>
-    <div class="scroll" style="margin-top:12px"><table><thead><tr><th rowspan="2">Executivo</th><th colspan="2" style="text-align:center">Ação 1</th><th colspan="2" style="text-align:center">Cobrança</th><th colspan="2" style="text-align:center">Lacuna</th><th class="r" rowspan="2">Sem atuação</th></tr>
-      <tr><th class="r">Mat.</th><th>% atuada</th><th class="r">Mat.</th><th>% atuada</th><th class="r">Mat.</th><th>% atuada</th></tr></thead><tbody>
+    <div class="scroll" style="margin-top:12px"><table><thead><tr><th rowspan="2">Executivo</th><th colspan="2" style="text-align:center">Ação 1</th><th colspan="2" style="text-align:center">Cobrança</th><th colspan="2" style="text-align:center">Lacuna</th><th colspan="2" style="text-align:center">Projeção</th><th class="r" rowspan="2">Sem atuação</th></tr>
+      <tr><th class="r">Mat.</th><th>% atuada</th><th class="r">Mat.</th><th>% atuada</th><th class="r">Mat.</th><th>% atuada</th><th class="r">Mat.</th><th>% atuada</th></tr></thead><tbody>
       ${L.map(({x,r,sem})=>`<tr><td><button class="link pessoa" onclick="setVer('${esc(x)}')">${av(x,28)}<span>${esc(x)}</span></button></td>${r.map(cel).join('')}<td class="r"><b style="color:${sem?'var(--rose)':'var(--leaf)'}">${int(sem)}</b></td></tr>`).join('')}
     </tbody></table></div></div>
   <div id="gerCart"><div class="card"><div class="loading"><div class="spin"></div>Lendo a carteira…</div></div></div>`;
@@ -1985,6 +2045,8 @@ function cargasHTML(){
     <div class="card"><h3>Ação de Cobrança</h3><p>Planilha da Ação de Cobrança (aba <b>BASE</b>: frustrantes do mês + base de oportunidade). Matrículas novas entram; as que já existem mantêm a atuação; as que saíram da base e nunca foram atuadas são retiradas.</p>
       ${dropBox('upCob','📎 Anexar Ação de Cobrança (.xlsx)','.xlsx,.xls','upCobranca')}
       <p class="mat" style="margin-top:8px">${ultCarga('acao_cobranca')}</p></div>
+    <div class="card"><h3>Projeção de Leitura</h3><p>Planilha de <b>Projeção · Ofensores</b> (aba <b>Negativo</b>: Matrícula, Cliente, SUP, Bairro, Vol/Fat orçado e previsto, Δ, Carteira, Executivo). Matrículas sem executivo recebem o executivo da carteira do mês. Atuações registradas são mantidas.</p>
+      ${dropBox('upProj','📎 Anexar Projeção de Leitura (.xlsx)','.xlsx,.xls','upProjecao')}<p class="mat" style="margin-top:8px">${ultCarga('projecao')}</p></div>
     <div class="card"><h3>Lacuna de Vencimento</h3><p>Planilha da <b>Lacuna de Vencimento</b> (Matrícula, Cliente, Carteira, Executivo, Vencimento Original, Valor). Matrículas novas entram, as atuadas são mantidas e as que saíram sem atuação são retiradas.</p>
       ${dropBox('upLac','📎 Anexar Lacuna de Vencimento (.xlsx)','.xlsx,.xls','upLacuna')}
       <p class="mat" style="margin-top:8px">${ultCarga('lacuna')}</p></div>
@@ -2106,6 +2168,10 @@ async function upCarteiraMensal(file,linhas){
   upMsg(`<div class="msg ok">Carteira de ${compLbl(comp)} gravada · ${int(uniq.length)} matrículas de ${nEx} executivos.${temProcx?' Faturamento e arrecadação do mês já foram cruzados.':' Agora anexe a base Procx do mês para cruzar faturamento e arrecadação.'}</div>
     ${falta.length?`<div class="msg info">Não encontrei na planilha a(s) coluna(s): <b>${falta.join(', ')}</b>. Colunas lidas: ${esc((S._colsCart||[]).join(' · '))}</div>`:''}`);
   await carregaPerfilCart();
+  // Projeção de Leitura: matrículas sem executivo recebem o da carteira
+  const idxEx=Object.fromEntries(uniq.map(u=>[u.matricula,u.executivo])), semEx=S.acao.filter(a=>a.acao_id===4&&!a.executivo&&idxEx[a.matricula]);
+  for(const a of semEx){ await sb.from('acao_base').update({executivo:idxEx[a.matricula]}).eq('acao_id',4).eq('matricula',a.matricula); }
+  if(semEx.length) await reload('acao');
   S.cart.base=null; S.cart.loaded=null; await reload('cargas'); render();
 }
 /* ---------- 2 · base Procx (faturamento / arrecadação / consumo) ---------- */
@@ -2166,8 +2232,8 @@ async function upProcx(file,wb){
 /* ---------- 2 · base matrícula → executivo ---------- */
 function baseRows(head,rows){
   const c=k=>colIdx(head,k), iM=c(A_MAT), iE=c(A_EXE);
-  const ix={cliente:c(['cliente','nomcliente','nomedocliente','razaosocial','nome']),curva:c(['curvafinal','curva']),carteira:c(['carteira']),utilizacao:c(['utilizacao','subcategoria','segmento']),
-    sit_ligacao:c(['sitligacao','situacaoligacao','situacao']),bairro:c(['bairro','nombairro']),regiao:c(['regiao','diretoria','spe','superintendencia']),perfil:c(['perfilcliente3meses','perfilcliente3mes','perfildocliente3meses','perfildocliente','perfilcliente','perfildepagamento','perfilpagamento','perfildepagto','perfil']),
+  const ix={cliente:c(['cliente','nomcliente','nomedocliente','razaosocial','nome']),curva:c(['curvafinal','curva','classificacaomacrocluster']),carteira:c(['carteira']),utilizacao:c(['utilizacao','subcategoria','segmento']),
+    sit_ligacao:c(['sitligacao','situacaoligacao','situacaodaligacao','situacao']),bairro:c(['bairro','nombairro']),regiao:c(['regiao','diretoria','spe','superintendencia']),perfil:c(['perfilcliente3meses','perfilcliente3mes','perfildocliente3meses','perfildocliente','perfilcliente','perfildepagamento','perfilpagamento','perfildepagto','perfil']),
     superintendencia:c(['superintendencia','superintendencias','superint','sup']),agrupamento:c(['agrupamento','agrupamentos','agrupamentocarteira','grupo'])};
   return rows.map(r=>{ const m=toMat(r[iM]), e=String(r[iE]??'').trim(); if(!m||!e||e==='#N/A') return null;
     const o={matricula:m,executivo:e}; for(const k in ix) o[k]=ix[k]>=0&&r[ix[k]]!=null?String(r[ix[k]]).trim():null; return o; }).filter(Boolean);
@@ -2219,6 +2285,42 @@ async function upSaldoContas(file){
     await sb.from('cargas').insert({tipo:'saldo_contas',competencia:dt.slice(0,7),arquivo:file.name,linhas:out.length,detalhe:{data_base:fdate(dt)}});
     upMsg(`<div class="msg ok">Saldo de Contas atualizado · ${int(out.length)} matrículas (base ${fdate(dt)}).</div>`);
     await Promise.all([reload('saldo'),reload('cargas')]); render();
+  }catch(e){ upMsg(`<div class="msg err">Erro: ${esc(e.message||e)}</div>`); }
+}
+/* ---------- Projeção de Leitura (acao 4) ---------- */
+async function upProjecao(file){
+  if(!file) return;
+  try{
+    const wb=await readBook(file);
+    const sn=wb.SheetNames.find(n=>norm(n).startsWith('negativ')); if(!sn) throw new Error('Não encontrei a aba "Negativo" (ofensores negativos).');
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});
+    const hi=aoa.findIndex(r=>r&&r.some(c=>norm(c)==='matricula')); if(hi<0) throw new Error('Não encontrei o cabeçalho com "Matrícula" na aba Negativo.');
+    const head=aoa[hi].map(c=>c==null?'':String(c)), c=k=>colIdx(head,k);
+    const ix={cl:c(['classif','classificacao']),d:head.findIndex(h=>h.trim()==='Δ'),m:c(A_MAT),cli:c(['cliente']),sup:c(['sup','superintendencia']),bai:c(['bairro']),vo:c(['volorcado','volorc']),vp:c(['volprev','volprevisto']),dv:c(['delta']),
+      fo:c(['faturcado','fatorcado']),fp:c(['fatprevisto','fatprev']),st:c(['status']),car:c(['carteira']),ex:c(A_EXE),obs:c(['obs','observacao'])};
+    const g=(r,k)=>ix[k]>=0?r[ix[k]]:null, txt=v=>v==null||v===''||v==='-'||v==='#N/A'?null:String(v).trim(), num=v=>v==null||v===''?null:+(+v).toFixed(4);
+    const exist=Object.fromEntries(S.acao.filter(a=>a.acao_id===4).map(a=>[a.matricula,a]));
+    const semEx=[]; const execCart={}; 
+    const linhas=aoa.slice(hi+1).filter(r=>r&&typeof r[ix.cl>=0?ix.cl:0]==='number'&&toMat(g(r,'m')));
+    const precisa=linhas.filter(r=>!txt(g(r,'ex'))).map(r=>toMat(g(r,'m')));
+    for(let i=0;i<precisa.length;i+=200){ const {data}=await sb.from('carteira_base').select('matricula,executivo').in('matricula',precisa.slice(i,i+200)); (data||[]).forEach(x=>execCart[x.matricula]=x.executivo); }
+    const statusOk=v=>{ const t=txt(v); if(!t) return null; return L_STATUS_PROJ.find(x=>norm(x)===norm(t))||t; };
+    const novos=[...new Map(linhas.map(r=>{ const m=toMat(g(r,'m')), e=exist[m]; let ex=txt(g(r,'ex'))||execCart[m]||e?.executivo||null; if(!ex) semEx.push(m);
+      return [m,{acao_id:4,matricula:m,cliente:txt(g(r,'cli')),executivo:ex,carteira:txt(g(r,'car'))||'-',regiao:txt(g(r,'sup')),bairro:txt(g(r,'bai')),prioridade:+g(r,'cl')||null,valor:num(g(r,'d')),
+        dados_origem:{ref:file.name.replace(/\.xlsx?$/i,''),proj:{vol_orc:num(g(r,'vo')),vol_prev:num(g(r,'vp')),delta_vol:num(g(r,'dv')),fat_orc:num(g(r,'fo')),fat_prev:num(g(r,'fp')),status:txt(g(r,'st'))}},
+        status_atuacao:e?.status_atuacao??statusOk(g(r,'obs')), observacao:e?.observacao??null,
+        status:e?e.status:(statusOk(g(r,'obs'))?'Em atuação':'Não iniciado'), status_origem:e?e.status_origem:'base'}]; })).values()];
+    const naoVieram=Object.values(exist).filter(a=>!novos.some(n=>n.matricula===a.matricula));
+    const remover=naoVieram.filter(a=>a.status==='Não iniciado'&&!a.status_atuacao);
+    const qtdNovas=novos.filter(n=>!exist[n.matricula]).length;
+    if(!confirm(`Projeção de Leitura: ${int(novos.length)} matrículas (${int(qtdNovas)} novas).\n${semEx.length?`${semEx.length} sem executivo (nem na planilha nem na carteira do mês): só a gestão vê.\n`:''}${remover.length?`${remover.length} saíram da base e nunca foram atuadas: serão retiradas.\n`:''}\nContinuar?`)) return;
+    prog('Gravando Projeção de Leitura…',0);
+    await sb.from('acoes').upsert({id:4,nome:'Projeção de Leitura · ofensores negativos (atuação preventiva)',inicio:new Date().toISOString().slice(0,10)},{onConflict:'id'});
+    for(let i=0;i<novos.length;i+=300){ const {error}=await sb.from('acao_base').upsert(novos.slice(i,i+300),{onConflict:'acao_id,matricula'}); if(error) throw error; prog('Gravando Projeção de Leitura…',Math.min(i+300,novos.length)/novos.length); }
+    for(let i=0;i<remover.length;i+=200){ const {error}=await sb.from('acao_base').delete().eq('acao_id',4).in('matricula',remover.slice(i,i+200).map(r=>r.matricula)); if(error) throw error; }
+    await sb.from('cargas').insert({tipo:'projecao',competencia:nowComp(),arquivo:file.name,linhas:novos.length,detalhe:{novas:qtdNovas,retiradas:remover.length,sem_executivo:semEx.length}});
+    upMsg(`<div class="msg ok">Projeção de Leitura atualizada · ${int(novos.length)} matrículas (${int(qtdNovas)} novas${remover.length?`, ${remover.length} retiradas`:''}).${semEx.length?` ${semEx.length} sem executivo: ${semEx.slice(0,10).join(', ')}${semEx.length>10?'…':''}`:''}</div>`);
+    await Promise.all([reload('acao'),reload('cargas')]); render();
   }catch(e){ upMsg(`<div class="msg err">Erro: ${esc(e.message||e)}</div>`); }
 }
 /* ---------- Lacuna de Vencimento ---------- */
