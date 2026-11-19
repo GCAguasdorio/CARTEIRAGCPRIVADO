@@ -614,12 +614,13 @@ function execList(){
 function tabsDef(){
   const pendR=S.recup.filter(r=>r.status==='Pendente').length, pendJ=S.just.filter(j=>j.status==='Pendente').length;
   const t=[['acao','Plano de Atuação'],['carteira','Carteira'],['recup','Recuperação de Cortados'],['cadpes','Cadastral & Pesquisa'],['plr','Metas PLR']];
-  if(S.gestao){ t.splice(1,0,['gerencial','Visão Gerencial']); t.push(['aprov','Aprovações', pendR+(S.validaPlr?pendJ:0)],['gestao','Gestão']); }
+  if(S.gestao){ t.splice(1,0,['gerencial','Visão Gerencial'],['sla','SLAs']); t.push(['aprov','Aprovações', pendR+(S.validaPlr?pendJ:0)],['gestao','Gestão']); }
   return t;
 }
 function go(tab){ S.tab=tab; history.replaceState(null,'','#'+tab); render(); window.scrollTo({top:0,behavior:'smooth'}); }
 function setVer(v){ S.ver=v; S.cart.loaded=null; render(); }
 const ICONS={
+  sla:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>',
   acao:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   carteira:'<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12.5" y="8" width="3" height="10"/><rect x="18" y="5" width="3" height="13"/>',
   recup:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 3"/>',
@@ -641,9 +642,9 @@ function render(){
   $('nav').innerHTML = tabsDef().map(([k,l,b])=>`<button class="${S.tab===k?'on':''}" onclick="go('${k}')">${ico(k)}${l}${b?`<span class="badge">${b}</span>`:''}</button>`).join('')
     + `<button class="sair" onclick="logout()">${ico('sair')}Sair</button>`;
   renderHero();
-  const v={gerencial:viewGerencial,acao:viewAcao,carteira:viewCarteira,recup:viewRecup,cadpes:viewCadPes,plr:viewPlr,aprov:viewAprov,gestao:viewGestao}[S.tab];
+  const v={sla:viewSla,gerencial:viewGerencial,acao:viewAcao,carteira:viewCarteira,recup:viewRecup,cadpes:viewCadPes,plr:viewPlr,aprov:viewAprov,gestao:viewGestao}[S.tab];
   $('main').innerHTML = v();
-  ({gerencial:afterGerencial,carteira:afterCarteira,cadpes:afterCadPes,acao:afterAcao,plr:afterPlr}[S.tab]||(()=>{}))();
+  ({sla:afterSla,gerencial:afterGerencial,carteira:afterCarteira,cadpes:afterCadPes,acao:afterAcao,plr:afterPlr}[S.tab]||(()=>{}))();
 }
 /* fotos: as do Painel Time vêm embutidas; a gestão pode trocar/incluir (tabela fotos_executivos) */
 function fotoDe(n){ return n && ((S.fotos||{})[n] || FOTOS_PADRAO[n]) || null; }
@@ -817,7 +818,6 @@ function viewAcao(){
     ${kc('ganho','c1',`<div class="l">Recuperado / pago / acordo</div><div class="v">${int(ganhos.length)}</div><div class="s">${money(sum(ganhos))} de saldo</div>`)}
     ${kc('outra','c5',`<div class="l">Também em outra ação</div><div class="v">${int(all.filter(r=>S.acao.some(x=>x.acao_id!==1&&x.matricula===r.matricula)).length)}</div><div class="s">Cobrança, Lacuna ou Projeção</div>`)}
   </div>
-  ${slaPH()}
   <div class="card" style="margin-top:18px"><h3>Status da Ação 1 <small>clique numa barra para filtrar a tabela</small></h3>${barrasLaterais(pipe.concat([...new Set(all.map(r=>r.status))].filter(x=>!pipe.includes(x))).map(p=>[p,cnt(p).length,sum(cnt(p))]).filter(x=>x[1]),'status')}</div>
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula, cliente ou bairro" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
@@ -827,7 +827,7 @@ function viewAcao(){
   ${kAviso()}<div id="acaoTb">${acaoTable(rows)}</div>`;
 }
 function refreshAcaoTable(){ $('acaoTb').innerHTML=S.acaoSel===2?cobTable(acaoFiltrada()):S.acaoSel===3?lacTable(acaoFiltrada()):S.acaoSel===4?projTable(acaoFiltrada()):acaoTable(acaoFiltrada()); }
-function afterAcao(){ if(S.gestao&&$('slaBox')) carregaSLA(S.acaoSel); }
+function afterAcao(){}
 function acaoTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=S.gestao&&!execFoco();
@@ -864,7 +864,6 @@ function viewCobranca(){
     ${kc('agend','c5',`<div class="l">Pagamento agendado</div><div class="v">${int(agend.length)}</div><div class="s">a partir de hoje · ${money(val(agend))}</div>`)}
   </div>
 
-  ${slaPH()}
   <div class="card" style="margin-top:18px"><h3>Status de atuação <small>clique em uma ou mais barras para filtrar a tabela</small></h3>${(()=>{ const sem=all.filter(r=>!r.status_atuacao), ks=[...L_MOTIVOS_COB,...new Set(all.map(r=>r.status_atuacao).filter(x=>x&&!L_MOTIVOS_COB.includes(x)))];
     return barrasLaterais([...(sem.length?[['Sem atuação',sem.length,val(sem)]]:[]),...ks.map(k=>{ const x=all.filter(r=>r.status_atuacao===k); return [k,x.length,val(x)]; }).filter(x=>x[1])],'satu'); })()}</div>
   <div class="toolbar">
@@ -905,7 +904,6 @@ function viewLacuna(){
     ${kc('ant','c2',`<div class="l">Faturas antecipadas</div><div class="v">${int(ant.length)}</div><div class="s">${money(val(ant))} puxados para o mês</div>`)}
     ${kc('pago','c5',`<div class="l">Pagas</div><div class="v">${int(pg.length)}</div><div class="s">${money(val(pg))}</div>`)}
   </div>
-  ${slaPH()}
   <div class="card" style="margin-top:18px"><h3>Status de atuação <small>clique em uma ou mais barras para filtrar a tabela</small></h3>${(()=>{ const sem=all.filter(r=>!r.status_atuacao), ks=[...L_STATUS_LACUNA,...new Set(all.map(r=>r.status_atuacao).filter(x=>x&&!L_STATUS_LACUNA.includes(x)))];
     return barrasLaterais([...(sem.length?[['Sem atuação',sem.length,val(sem)]]:[]),...ks.map(k=>{ const x=all.filter(r=>r.status_atuacao===k); return [k,x.length,val(x)]; }).filter(x=>x[1])],'satu'); })()}</div>
   <div class="toolbar">
@@ -948,7 +946,6 @@ function viewProjecao(){
     ${kc('prev','c2',`<div class="l">Ainda em previsão</div><div class="v">${int(all.length-fat.length)}</div><div class="s">leitura do mês ainda não faturada</div>`)}
     ${kc('fat','c5',`<div class="l">Já faturadas</div><div class="v">${int(fat.length)}</div><div class="s">${money(val(fat))}</div>`)}
   </div>
-  ${slaPH()}
   <div class="card" style="margin-top:18px"><h3>Status de atuação <small>clique em uma ou mais barras para filtrar</small></h3>${barrasLaterais([...(sem.length?[['Sem atuação',sem.length,val(sem)]]:[]),...bars],'satu')}</div>
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula, cliente ou bairro" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
@@ -1589,6 +1586,71 @@ function slaHTML(id,hist){
       ${ex.map(x=>`<tr><td>${x.e==='sem executivo'?'<span class="mat">sem executivo</span>':pessoa(x.e)}</td><td class="r">${int(x.n)}</td><td class="r">${int(x.at)}</td><td class="r num">${fDias(x.prim)}</td><td class="r num">${fDias(x.tot)}</td><td class="r">${int(x.cc)}</td><td class="r ${x.par?'sla-ruim':''}">${int(x.par)}</td></tr>`).join('')}</tbody></table></div></div>
   </div>
   <p class="mat" style="margin-top:8px">Dias corridos. Entrada = data em que a matrícula entrou na ação na plataforma. 1ª atuação = primeiro registro feito por uma pessoa. Conclusão = ${id===3||id===4?'status de atuação preenchido':'status final (acordo aceito, pagamento identificado, cancelamento, jurídico, não factível, recuperado ou finalizado)'}. ${out.filter(o=>o.semHist).length?`${int(out.filter(o=>o.semHist).length)} já estavam concluídas antes da plataforma e ficam fora do SLA total.`:''}</p>`;
+}
+
+/* ---------- Aba SLAs (gestão) ---------- */
+const NOMES_ACAO_SLA={1:'Ação 1 · Recuperação + TOP 100',2:'Ação de Cobrança',3:'Lacuna de Vencimento',4:'Projeção de Leitura'};
+function viewSla(){
+  if(!S.gestao) return '<div class="card empty"><b>Só a gestão vê os SLAs</b></div>';
+  const ids=ACOES_IDS.filter(id=>acaoDe(id).length);
+  return `<div class="sec-h"><div><h2>SLAs das atuações</h2><p>Resumo de cada ação · clique num card para ver o detalhe${execFoco()?' · '+esc(execFoco()):''}</p></div></div>
+  ${ids.map(id=>`<div class="card sla-card" style="margin-top:18px"><h3>${esc(NOMES_ACAO_SLA[id])} ${prazoTag(id,true)}</h3><div id="sla_${id}"><div class="loading"><div class="spin"></div>Calculando…</div></div></div>`).join('')}
+  <p class="mat" style="margin-top:12px">Dias corridos. Entrada = data em que a matrícula entrou na ação. 1ª atuação = primeiro registro feito por uma pessoa. Conclusão: Ação 1 e Cobrança = status final (acordo aceito, pagamento identificado, cancelamento, jurídico, não factível, recuperado ou finalizado); Lacuna e Projeção = status de atuação preenchido.</p>`;
+}
+S.slaR={};
+async function afterSla(){
+  for(const id of ACOES_IDS.filter(id=>acaoDe(id).length)){
+    try{
+      let H=S.sla.cache[id];
+      if(!H||Date.now()-H.t>120000){ const d=await fetchAll(()=>sb.from('acao_historico').select('matricula,campo,de,para,origem,em').eq('acao_id',id).order('em')); H=S.sla.cache[id]={t:Date.now(),d}; }
+      if(S.tab!=='sla'||!$('sla_'+id)) return;
+      S.slaR[id]=slaCalc(id,H.d); $('sla_'+id).innerHTML=slaResumo(id);
+    }catch(e){ $('sla_'+id)&&($('sla_'+id).innerHTML=`<div class="msg err">${esc(e.message||e)}</div>`); }
+  }
+}
+const SLA_LIM=7;
+function slaResumo(id){
+  const {out}=S.slaR[id], pz=prazoDe(id);
+  const at=out.filter(o=>o.prim!=null), cc=out.filter(o=>o.total!=null), ab=out.filter(o=>!o.concl), semAt=ab.filter(o=>o.prim==null), par=ab.filter(o=>o.parado>SLA_LIM);
+  const pzT=pz?new Date(pz+'T23:59:59').getTime():null, noPz=pzT?cc.filter(o=>o.t0+o.total*864e5<=pzT).length:0;
+  const card=(k,cls,l,v,sub)=>`<div class="k ${cls} clk" onclick="slaDet(${id},'${k}')" title="Clique para ver o detalhe"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`;
+  return `<div class="kpis" style="margin-top:8px">
+    ${card('prim','','1ª atuação · média',fDias(media(at.map(o=>o.prim))),`mediana ${fDias(mediana(at.map(o=>o.prim)))} · ${int(at.length)} atuadas na plataforma`)}
+    ${card('total','','SLA total · média',fDias(media(cc.map(o=>o.total))),`entrada → conclusão · mediana ${fDias(mediana(cc.map(o=>o.total)))} · ${int(cc.length)} concluídas`)}
+    ${card('etapa','c2','Por etapa',int(Object.keys(S.slaR[id].etapas).length),'tempo médio em cada status')}
+    ${card('aberto','','Em aberto',int(ab.length),`idade média ${fDias(media(ab.map(o=>o.idade)))} · ${int(semAt.length)} sem nenhuma atuação`)}
+    ${card('parado','c4',`Paradas há mais de ${SLA_LIM} dias`,int(par.length),'em aberto e sem movimentação')}
+    ${pz?card('prazo','c3','Concluídas no prazo',cc.length?pct(noPz/cc.length,0):'—',`prazo ${fdate(pz)} · ${int(noPz)} de ${int(cc.length)}`):''}
+  </div>`;
+}
+function slaDet(id,k){
+  const R=S.slaR[id]; if(!R) return; const {out,etapas,porEx}=R, ge=!execFoco();
+  const pz=prazoDe(id), pzT=pz?new Date(pz+'T23:59:59').getTime():null;
+  const tabMat=(L,cols)=>L.length?`<div class="scroll" style="max-height:52vh"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}${cols.map(c=>`<th class="r">${c[0]}</th>`).join('')}<th>Status atual</th></tr></thead><tbody>
+    ${L.map(o=>`<tr style="cursor:pointer" onclick="closeModal();S.tab='acao';S.acaoSel=${id};render();openAtuar(${id},${o.r.matricula})"><td><span class="cli">${esc(o.r.cliente||'')}</span><span class="mat">${o.r.matricula}</span></td>${ge?`<td>${o.r.executivo?pessoa(o.r.executivo):'<span class="mat">sem executivo</span>'}</td>`:''}
+      ${cols.map(c=>`<td class="r num ${c[2]&&c[2](o)?'sla-ruim':''}">${c[1](o)}</td>`).join('')}<td>${id===1||id===2?stPill(o.r.status):esc(o.r.status_atuacao||'Sem atuação')}</td></tr>`).join('')}</tbody></table></div><p class="mat" style="margin-top:6px">${int(L.length)} matrícula(s) · clique numa linha para abrir a atuação</p>`:'<div class="card empty"><b>Nenhuma matrícula</b></div>';
+  const exTab=(cols)=>{ const l=Object.entries(porEx).map(([e,v])=>({e,v})); return `<div class="scroll" style="max-height:40vh"><table><thead><tr><th>Executivo</th>${cols.map(c=>`<th class="r">${c[0]}</th>`).join('')}</tr></thead><tbody>
+    ${l.map(x=>({...x,c:cols.map(c=>c[1](x.v))})).sort((a,b)=>(cols[0][2]?cols[0][2](b.v)-cols[0][2](a.v):0)).map(x=>`<tr><td>${x.e==='sem executivo'?'<span class="mat">sem executivo</span>':pessoa(x.e)}</td>${x.c.map(v=>`<td class="r num">${v}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; };
+  let tit='', body='';
+  if(k==='prim'){ tit='1ª atuação'; const L=out.filter(o=>o.prim!=null).sort((a,b)=>b.prim-a.prim);
+    body=`<h4 class="sla-t">Por executivo</h4>${exTab([['Matrículas',v=>int(v.length),v=>v.length],['Atuadas',v=>int(v.filter(o=>o.prim!=null).length)],['% atuadas',v=>pct(v.filter(o=>o.prim!=null).length/v.length,0)],['1ª atuação · média',v=>fDias(media(v.filter(o=>o.prim!=null).map(o=>o.prim)))],['Mediana',v=>fDias(mediana(v.filter(o=>o.prim!=null).map(o=>o.prim)))]])}
+      <h4 class="sla-t" style="margin-top:16px">Matrículas atuadas · da mais demorada para a mais rápida</h4>${tabMat(L,[['Entrada',o=>fdate(new Date(o.t0).toISOString())],['1ª atuação em',o=>fDias(o.prim),o=>o.prim>SLA_LIM]])}`; }
+  else if(k==='total'||k==='prazo'){ tit=k==='prazo'?`Concluídas x prazo (${fdate(pz)})`:'SLA total · entrada → conclusão'; const L=out.filter(o=>o.total!=null).sort((a,b)=>b.total-a.total);
+    body=`<h4 class="sla-t">Por executivo</h4>${exTab([['Matrículas',v=>int(v.length),v=>v.length],['Concluídas',v=>int(v.filter(o=>o.concl).length)],['SLA total · média',v=>fDias(media(v.filter(o=>o.total!=null).map(o=>o.total)))],['Mediana',v=>fDias(mediana(v.filter(o=>o.total!=null).map(o=>o.total)))]].concat(pz?[['No prazo',v=>int(v.filter(o=>o.total!=null&&o.t0+o.total*864e5<=pzT).length)]]:[]))}
+      <h4 class="sla-t" style="margin-top:16px">Matrículas concluídas na plataforma</h4>${tabMat(L,[['Entrada',o=>fdate(new Date(o.t0).toISOString())],['Concluída em',o=>fdate(new Date(o.t0+o.total*864e5).toISOString())],['SLA total',o=>fDias(o.total),o=>pzT&&o.t0+o.total*864e5>pzT],['1ª atuação',o=>fDias(o.prim)]])}
+      ${out.filter(o=>o.semHist).length?`<p class="mat" style="margin-top:6px">${int(out.filter(o=>o.semHist).length)} já estavam concluídas antes da plataforma e ficam fora do SLA total.</p>`:''}`; }
+  else if(k==='etapa'){ tit=`Tempo por etapa · ${id===1?'status':'status de atuação'}`;
+    const et=Object.entries(etapas).map(([k,v])=>({k,n:v.dur.length,med:media(v.dur),mdn:mediana(v.dur),max:v.dur.length?Math.max(...v.dur):null,ag:v.agora||0,abMed:media(v.abertos)})).filter(x=>x.n||x.ag).sort((a,b)=>(b.ag+b.n)-(a.ag+a.n));
+    body=`<div class="scroll"><table><thead><tr><th>Etapa</th><th class="r">Passaram</th><th class="r">Tempo médio</th><th class="r">Mediana</th><th class="r">Máx.</th><th class="r">Nela agora</th><th class="r">Parada há (média)</th></tr></thead><tbody>
+      ${et.map(x=>`<tr><td><b>${esc(x.k)}</b></td><td class="r">${int(x.n)}</td><td class="r num">${fDias(x.med)}</td><td class="r num">${fDias(x.mdn)}</td><td class="r num">${fDias(x.max)}</td><td class="r">${int(x.ag)}</td><td class="r num ${x.abMed>SLA_LIM?'sla-ruim':''}">${fDias(x.abMed)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="mat" style="margin-top:6px">Passaram = quantas saíram dessa etapa para outra. Tempo médio/mediana/máx. = quanto ficaram nela. Nela agora = quantas estão nessa etapa hoje.</p>`; }
+  else if(k==='aberto'){ tit='Em aberto'; const L=out.filter(o=>!o.concl).sort((a,b)=>b.parado-a.parado);
+    body=`<h4 class="sla-t">Por executivo</h4>${exTab([['Em aberto',v=>int(v.filter(o=>!o.concl).length),v=>v.filter(o=>!o.concl).length],['Sem nenhuma atuação',v=>int(v.filter(o=>!o.concl&&o.prim==null).length)],['Idade média',v=>fDias(media(v.filter(o=>!o.concl).map(o=>o.idade)))],[`Paradas >${SLA_LIM}d`,v=>int(v.filter(o=>!o.concl&&o.parado>SLA_LIM).length)]])}
+      <h4 class="sla-t" style="margin-top:16px">Matrículas em aberto · paradas há mais tempo primeiro</h4>${tabMat(L,[['Entrada',o=>fdate(new Date(o.t0).toISOString())],['Idade',o=>fDias(o.idade)],['Sem movimentação há',o=>fDias(o.parado),o=>o.parado>SLA_LIM],['1ª atuação',o=>o.prim==null?'—':fDias(o.prim)]])}`; }
+  else if(k==='parado'){ tit=`Paradas há mais de ${SLA_LIM} dias`; const L=out.filter(o=>!o.concl&&o.parado>SLA_LIM).sort((a,b)=>b.parado-a.parado);
+    body=`<h4 class="sla-t">Por executivo</h4>${exTab([['Paradas',v=>int(v.filter(o=>!o.concl&&o.parado>SLA_LIM).length),v=>v.filter(o=>!o.concl&&o.parado>SLA_LIM).length]])}
+      <h4 class="sla-t" style="margin-top:16px">Matrículas</h4>${tabMat(L,[['Entrada',o=>fdate(new Date(o.t0).toISOString())],['Sem movimentação há',o=>fDias(o.parado),()=>true]])}`; }
+  modal(`<div class="modal lg"><div class="mh"><div><h3>${esc(tit)}</h3><p>${esc(NOMES_ACAO_SLA[id])}${execFoco()?' · '+esc(execFoco()):''}</p></div><button class="x" onclick="closeModal()">×</button></div><div class="mb">${body}</div></div>`);
 }
 </script>
 <script>
