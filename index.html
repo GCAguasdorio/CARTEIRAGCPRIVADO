@@ -319,6 +319,12 @@
   .pz-ok{ background:var(--water-soft); color:var(--water); } .pz-a{ background:var(--amber-soft); color:var(--amber); } .pz-v{ background:var(--rose-soft); color:var(--rose); }
   .prazo-b{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 14px; margin-top:14px; padding:10px 14px; border-radius:12px; font-size:13px; color:var(--navy); }
   .prazo-b .pz{ margin-top:0; background:#fff; }
+  .obs-td{ min-width:200px; max-width:280px; }
+  .obs-c{ font-size:12.5px; color:var(--navy); white-space:normal; line-height:1.35; }
+  .cobs{ cursor:pointer; border:1px dashed var(--water-line); border-radius:8px; padding:5px 8px; font-size:12px; white-space:normal; line-height:1.35; min-width:150px; }
+  .cobs:hover{ background:var(--water-soft); border-color:var(--water); }
+  .cobs-t{ display:block; color:var(--navy); } .cobs-add{ color:var(--water); font-weight:700; }
+  .ov.obs-bg{ z-index:1200; }
 </style>
 </head>
 <body>
@@ -576,6 +582,7 @@ async function loadAll(){
   try{ S.saldo=await fetchAll(()=>sb.from('saldo_contas').select('*').order('matricula')); }catch(_){ S.saldo=[]; }
   idxSaldo();
   try{ const {data}=await sb.from('acoes').select('*'); S.acoes=data||[]; }catch(_){ S.acoes=[]; }
+  try{ const co=await fetchAll(()=>sb.from('carteira_obs').select('*').order('matricula')); S.cobs=Object.fromEntries(co.map(x=>[x.matricula,x])); }catch(_){ S.cobs={}; }
   if(typeof carregaPerfilCart==='function') await carregaPerfilCart();
   try{ const fx=await fetchAll(()=>sb.from('fotos_executivos').select('executivo,foto')); S.fotos=Object.fromEntries(fx.map(f=>[f.executivo,f.foto])); }catch(_){ S.fotos={}; }
   S.loaded=true;
@@ -669,7 +676,7 @@ const L_MOTIVOS_COB = ['Pagamento agendado','Flutuante/Perfil escorregadio - Já
   'Cliente com Processo Judicial','Não concorda com a cobrança de esgoto','Direcionado ao Time de Comunidades - Acompanhando','Cliente cortado',
   'Flutuante/Perfil escorregadio','Fatura em contestação'];
 S.acaoSel = 1;
-const L_STATUS_LACUNA = ['PAGO','DÉBITO AUTOMÁTICO','PARCELADO','ISENTA','RESISTÊNCIA DO CLIENTE','CLIENTE INADIMPLENTE/CORTADO','FATURA ANTECIPADA',
+const L_STATUS_LACUNA = ['ENVIADO AO FATURAMENTO','PAGO','DÉBITO AUTOMÁTICO','PARCELADO','ISENTA','RESISTÊNCIA DO CLIENTE','CLIENTE INADIMPLENTE/CORTADO','FATURA ANTECIPADA',
   'CONTATO SEM SUCESSO/VISITA','FATURA EM CONTESTAÇÃO','JÁ POSSUI FATURA PARA O MÊS VIGENTE','AGUARDANDO O RETORNO DO CLIENTE','FATURÃO',
   'EM CONTATO COM O CLIENTE, INFORMA QUE O PG JÁ ESTAVA PROGRAMADO'];
 const NOME_ACAO = {1:'Ação 1', 2:'Cobrança', 3:'Lacuna', 4:'Projeção'};
@@ -704,6 +711,8 @@ function boxOutras(m,atual){
   </div>`;
 }
 
+function obsCell(r){ if(!r.observacao) return '<span class="mat">—</span>';
+  const t=r.observacao; return `<div class="obs-c" title="${esc(t)}">${esc(t.length>140?t.slice(0,138)+'…':t)}</div><span class="mat">${r.atualizado_por&&r.atualizado_por!=='plataforma'?esc(String(r.atualizado_por).split('@')[0])+' · ':''}${fdate(r.atualizado_em)}</span>`; }
 /* ---------- barras laterais clicáveis ---------- */
 function barrasLaterais(lst,campo){
   const mx=Math.max(1,...lst.map(x=>x[1])), tot=lst.reduce((a,x)=>a+x[1],0);
@@ -817,15 +826,16 @@ function acaoTable(rows){
   const ge=S.gestao&&!execFoco();
   return `<div class="scroll"><table class="fix"><thead><tr>
     <th>Cliente / matrícula</th><th>Base</th>${ge?'<th>Executivo</th>':''}<th>Situação</th><th class="r">Saldo vencido</th><th class="r">Aging</th>
-    <th>Análise / plano</th><th>Última ação</th><th>Status</th><th>Outras bases</th></tr></thead><tbody>
+    <th>Análise / plano</th><th>Última ação</th><th>Status</th><th>Observação</th><th>Outras bases</th></tr></thead><tbody>
     ${rows.map(r=>`<tr>
       <td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula} · ${esc(r.bairro||'')}</span></div><button class="btn sm" onclick="openAtuar(${r.acao_id},${r.matricula})">Atuar</button></div></td>
       <td>${origemTag(r.origem)}</td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}
       <td>${sitHtml(r.sit_ligacao)}</td>
       <td class="r num">${money2(r.saldo_vencido)}</td><td class="r num">${r.aging!=null?int(r.aging)+' d':'—'}</td>
       <td class="wrap-c">${esc(r.analise||r.tratativa||'—')}${r.plano_acao?`<br><span class="mat">${esc(r.plano_acao)}</span>`:''}</td>
-      <td class="wrap-c">${esc(r.acao_executivo||r.proposta||'—')}</td>
+      <td class="wrap-c">${esc(r.acao_executivo||r.proposta||'—')}${r.visita_realizada?`<br><span class="mat">Visita: ${esc(r.visita_realizada)}${r.data_acao?' · '+fdate(r.data_acao):''}</span>`:''}</td>
       <td>${stPill(r.status)}<br><span class="mat">${r.status_origem==='plataforma'?'auto · ':''}${fdate(r.atualizado_em)}</span></td>
+      <td class="wrap-c obs-td">${obsCell(r)}</td>
       <td class="wrap-c">${outrasBases(r.matricula,1)}</td></tr>`).join('')}
     </tbody></table></div>
     <p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.saldo_vencido||0),0))}</p>`;
@@ -847,6 +857,8 @@ function viewCobranca(){
     ${kc('agend','c5',`<div class="l">Pagamento agendado</div><div class="v">${int(agend.length)}</div><div class="s">a partir de hoje · ${money(val(agend))}</div>`)}
   </div>
 
+  <div class="card" style="margin-top:18px"><h3>Status de atuação <small>clique em uma ou mais barras para filtrar a tabela</small></h3>${(()=>{ const sem=all.filter(r=>!r.status_atuacao), ks=[...L_MOTIVOS_COB,...new Set(all.map(r=>r.status_atuacao).filter(x=>x&&!L_MOTIVOS_COB.includes(x)))];
+    return barrasLaterais([...(sem.length?[['Sem atuação',sem.length,val(sem)]]:[]),...ks.map(k=>{ const x=all.filter(r=>r.status_atuacao===k); return [k,x.length,val(x)]; }).filter(x=>x[1])],'satu'); })()}</div>
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula ou cliente" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
     <select class="sel" onchange="S.f.motivo=this.value;render()"><option value="">Status de atuação: todos</option><option value="__sem" ${S.f.motivo==='__sem'?'selected':''}>Sem atuação</option>${mots.map(m=>`<option ${S.f.motivo===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
@@ -860,13 +872,13 @@ function cobTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=S.gestao&&!execFoco();
   return `<div class="scroll"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Carteira</th><th>Vencimento</th><th class="r">Valor</th><th class="r">Aging</th><th>Perfil</th>
-    <th>Base</th><th>Status de atuação</th><th>Agendamento</th><th>Outras ações</th></tr></thead><tbody>
+    <th>Base</th><th>Status de atuação</th><th>Agendamento</th><th>Observação</th><th>Outras ações</th></tr></thead><tbody>
     ${rows.map(r=>`<tr><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula}${r.sit_ligacao==='Cortada'?' · <span class="sit-c">Cortada</span>':''}</span></div><button class="btn sm" onclick="openAtuar(2,${r.matricula})">Atuar</button></div></td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}
       <td>${esc(r.carteira||'—')}</td><td>${fdate(r.vencimento)}</td><td class="r num">${money2(r.valor)}</td><td class="r num">${r.aging!=null?int(r.aging)+' d':'—'}</td>
       <td>${esc(r.perfil_pagamento||'—')}</td>
       <td>${esc((r.base_origem||'—').trim())}</td>
       <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}${!['Não iniciado','Em atuação','Pagamento identificado','Acordo aceito'].includes(r.status)?`<br>${stPill(r.status)}`:''}</td>
-      <td>${fdate(r.data_agendamento)}</td><td class="wrap-c">${outrasBases(r.matricula,2)}</td></tr>`).join('')}
+      <td>${fdate(r.data_agendamento)}</td><td class="wrap-c obs-td">${obsCell(r)}</td><td class="wrap-c">${outrasBases(r.matricula,2)}</td></tr>`).join('')}
   </tbody></table></div><p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}</p>`;
 }
 
@@ -885,6 +897,8 @@ function viewLacuna(){
     ${kc('ant','c2',`<div class="l">Faturas antecipadas</div><div class="v">${int(ant.length)}</div><div class="s">${money(val(ant))} puxados para o mês</div>`)}
     ${kc('pago','c5',`<div class="l">Pagas</div><div class="v">${int(pg.length)}</div><div class="s">${money(val(pg))}</div>`)}
   </div>
+  <div class="card" style="margin-top:18px"><h3>Status de atuação <small>clique em uma ou mais barras para filtrar a tabela</small></h3>${(()=>{ const sem=all.filter(r=>!r.status_atuacao), ks=[...L_STATUS_LACUNA,...new Set(all.map(r=>r.status_atuacao).filter(x=>x&&!L_STATUS_LACUNA.includes(x)))];
+    return barrasLaterais([...(sem.length?[['Sem atuação',sem.length,val(sem)]]:[]),...ks.map(k=>{ const x=all.filter(r=>r.status_atuacao===k); return [k,x.length,val(x)]; }).filter(x=>x[1])],'satu'); })()}</div>
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula ou cliente" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
     <select class="sel" onchange="S.f.motivo=this.value;render()"><option value="">Status: todos</option><option value="__sem" ${S.f.motivo==='__sem'?'selected':''}>Sem atuação</option>${sts.map(m=>`<option ${S.f.motivo===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
@@ -897,13 +911,14 @@ function lacTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=S.gestao&&!execFoco();
   return `<div class="scroll"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Carteira</th><th>Vencimento original</th><th class="r">Valor da fatura</th><th>Perfil do cliente</th>
-    <th>Fatura antecipada</th><th>Novo vencimento</th><th>Status</th><th>Outras ações</th></tr></thead><tbody>
+    <th>Fatura antecipada</th><th>Novo vencimento</th><th>Status</th><th>Observação</th><th>Outras ações</th></tr></thead><tbody>
     ${rows.map(r=>`<tr><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula}${r.sit_ligacao==='Cortada'?' · <span class="sit-c">Cortada</span>':''}</span></div><button class="btn sm" onclick="openAtuar(3,${r.matricula})">Atuar</button></div></td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}
       <td>${esc(r.carteira||'—')}</td><td>${r.vencimento?fdate(r.vencimento):'<span class="mat">não informado</span>'}</td><td class="r num">${money2(r.valor)}</td>
       <td>${esc(perfilDe(r.matricula,r)||'—')}</td>
       <td>${r.fatura_antecipada==='Sim'?'<span class="pill st-3">Sim</span>':r.fatura_antecipada==='Não'?'<span class="pill st-4">Não</span>':'<span class="mat">—</span>'}</td>
       <td>${fdate(r.novo_vencimento)}</td>
-      <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}</td>
+      <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}${r.os?`<br><span class="mat">O.S. ${esc(r.os)}</span>`:''}</td>
+      <td class="wrap-c obs-td">${obsCell(r)}</td>
       <td class="wrap-c">${outrasBases(r.matricula,3)}</td></tr>`).join('')}
   </tbody></table></div><p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}</p>`;
 }
@@ -936,14 +951,15 @@ function projTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=S.gestao&&!execFoco();
   return `<div class="scroll"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th class="r" title="Classificação do ofensor na planilha">Classif.</th><th>Carteira</th><th>SUP / bairro</th><th class="r">Vol. orçado</th><th class="r">Vol. previsto</th><th class="r">Δ volume</th>
-    <th class="r">Fat. orçado</th><th class="r">Fat. previsto</th><th class="r">Δ R$</th><th>Leitura</th><th>Status de atuação</th><th>Outras ações</th></tr></thead><tbody>
+    <th class="r">Fat. orçado</th><th class="r">Fat. previsto</th><th class="r">Δ R$</th><th>Leitura</th><th>Status de atuação</th><th>Observação</th><th>Outras ações</th></tr></thead><tbody>
     ${rows.map(r=>{ const p=proj(r), dv=p.vol_orc?(p.vol_prev-p.vol_orc)/p.vol_orc:null;
       return `<tr><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula}${r.sit_ligacao==='Cortada'?' · <span class="sit-c">Cortada</span>':''}</span></div><button class="btn sm" onclick="openAtuar(4,${r.matricula})">Atuar</button></div></td>${ge?`<td>${r.executivo?pessoa(r.executivo):'<span class="mat">sem executivo</span>'}</td>`:''}
       <td class="r mat">${r.prioridade??''}</td><td>${esc(r.carteira||'—')}</td><td>${esc(r.regiao||'—')}<br><span class="mat">${esc(r.bairro||'')}</span></td>
       <td class="r num">${fmtM3(p.vol_orc)}</td><td class="r num">${fmtM3(p.vol_prev)}</td><td class="r num" style="color:var(--rose)">${fmtM3(p.delta_vol)}${dv!=null?`<br><span class="mat">${pct(dv,0)}</span>`:''}</td>
       <td class="r num">${money2(p.fat_orc)}</td><td class="r num">${money2(p.fat_prev)}</td><td class="r num" style="color:var(--rose);font-weight:700">${money2(r.valor)}</td>
       <td>${p.status?`<span class="pill nopt ${p.status==='Faturado'?'st-3':'st-1'}">${esc(p.status)}</span>`:'—'}</td>
-      <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}${r.observacao?`<br><span class="mat">${esc(r.observacao.slice(0,80))}</span>`:''}</td>
+      <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}</td>
+      <td class="wrap-c obs-td">${obsCell(r)}</td>
       <td class="wrap-c">${outrasBases(r.matricula,4)}</td></tr>`; }).join('')}
   </tbody></table></div><p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · Δ ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}</p>`;
 }
@@ -979,12 +995,13 @@ function viewSaldo(){
 function saldoTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=S.gestao&&!execFoco(), lim=S.sf.lim||100;
-  return `<div class="scroll"><table><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th class="r">Saldo vencido</th><th class="r">Notas</th><th>Venc. mais antigo</th><th>Tipo de fatura</th><th>Tempo da dívida</th><th>Perfil</th><th>Plano de atuação</th><th></th></tr></thead><tbody>
+  return `<div class="scroll"><table><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th class="r">Saldo vencido</th><th class="r">Notas</th><th>Venc. mais antigo</th><th>Tipo de fatura</th><th>Tempo da dívida</th><th>Perfil</th><th>Plano de atuação</th><th>Observação (controle)</th><th></th></tr></thead><tbody>
     ${rows.slice(0,lim).map(r=>`<tr><td><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula} · ${esc(r.carteira||'')}${r.situacao==='CORTADA'?' · <span class="sit-c">Cortada</span>':''}</span></td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}
       <td class="r num">${money2(r.saldo_vencido)}</td><td class="r">${int(r.notas_vencidas)}</td><td>${fdate(r.venc_mais_antigo)}</td><td class="wrap-c">${esc(r.tipo_boleto||'—')}</td>
       <td><span class="pill nopt ${/Acima/.test(r.faixa||'')?'st-4':/1 a 30/.test(r.faixa||'')?'st-1':'st-5'}">${esc(r.faixa||'—')}</span><br><span class="mat">${int(r.aging)} dias</span></td>
       <td>${esc(r.perfil||'—')}<br><span class="mat">${esc(r.classificacao||'')}</span></td>
       <td class="wrap-c">${outrasBases(r.matricula,'saldo')}</td>
+      <td class="obs-td">${cobsCell(r.matricula)}</td>
       <td><button class="btn sec sm" onclick="openSaldo(${r.matricula})">Ver</button></td></tr>`).join('')}
   </tbody></table></div>
   ${rows.length>lim?`<div class="more"><button class="btn sec sm" onclick="S.sf.lim=(S.sf.lim||100)+300;refreshSaldo()">Mostrar mais (${rows.length-lim} restantes)</button></div>`:''}
@@ -1011,6 +1028,7 @@ function autoStatus(r){
     if(m==='PAGO') return 'Pagamento identificado';
     if(r.fatura_antecipada==='Sim'||m==='FATURA ANTECIPADA') return 'Fatura antecipada';
     if(/INADIMPLENTE|CORTADO/.test(m)) return 'Em atuação';
+    if(m==='ENVIADO AO FATURAMENTO') return 'Em atuação';
     if(m||r.observacao) return 'Em atuação';
     return r.status;
   }
@@ -1047,7 +1065,8 @@ async function openAtuar(aid,mat){
   const campos = pj ? `
         <div class="fld full"><label>Status de atuação (motivo da queda de consumo)</label><select id="a_lst">${opts(L_STATUS_PROJ,r.status_atuacao)}</select></div>`
     : lac ? `
-        <div class="fld full"><label>Status</label><select id="a_lst">${opts(L_STATUS_LACUNA,r.status_atuacao)}</select></div>
+        <div class="fld full"><label>Status</label><select id="a_lst" onchange="$('a_osW').style.display=this.value==='ENVIADO AO FATURAMENTO'?'':'none'">${opts(L_STATUS_LACUNA,r.status_atuacao)}</select></div>
+        <div class="fld full" id="a_osW" style="display:${r.status_atuacao==='ENVIADO AO FATURAMENTO'?'':'none'}"><label>Nº da O.S. de faturamento <span style="color:var(--rose)">*</span></label><input id="a_os" value="${esc(r.os||'')}" placeholder="Ex.: 2026/3035597"><span class="help">Obrigatório quando o status é Enviado ao faturamento.</span></div>
         <div class="fld"><label>Fatura antecipada?</label><select id="a_fa" onchange="$('a_nvW').style.opacity=this.value==='Sim'?1:.45;$('a_nv').disabled=this.value!=='Sim'">${opts(['Sim','Não'],r.fatura_antecipada)}</select></div>
         <div class="fld" id="a_nvW" style="opacity:${r.fatura_antecipada==='Sim'?1:.45}"><label>Novo vencimento ajustado</label><input type="date" id="a_nv" value="${r.novo_vencimento||''}" ${r.fatura_antecipada==='Sim'?'':'disabled'}><span class="help">Preencha quando a fatura for antecipada.</span></div>`
     : cob ? `
@@ -1060,7 +1079,9 @@ async function openAtuar(aid,mat){
         <div class="fld"><label>Retorno do cliente</label><select id="a_ret">${opts(L_RETORNO,r.retorno_cliente)}</select></div>
         <div class="fld"><label>Data do envio</label><input type="date" id="a_env" value="${r.data_envio||''}"></div>
         <div class="fld"><label>Prazo de retorno</label><input type="date" id="a_pra" value="${r.prazo_retorno||''}"></div>
-        <div class="fld"><label>Revalidação de recuperação</label><select id="a_rev">${opts(L_REVAL,r.revalidacao)}</select></div>`;
+        <div class="fld"><label>Revalidação de recuperação</label><select id="a_rev">${opts(L_REVAL,r.revalidacao)}</select></div>
+        <div class="fld"><label>Visita realizada?</label><select id="a_vis">${opts(['Sim','Não'],r.visita_realizada)}</select></div>
+        <div class="fld"><label>Data da ação</label><input type="date" id="a_dac" value="${r.data_acao||''}"></div>`;
   modal(`<div class="modal">
     <div class="mh">${r.executivo?av(r.executivo,44):''}<div><h3>${esc(r.cliente)}</h3><p>Matrícula ${r.matricula} · ${esc(r.executivo||'sem executivo')} · ${pj?'Projeção de Leitura':lac?'Lacuna de Vencimento':cob?'Ação de Cobrança':'Ação 1 · '+esc(r.origem||'')}</p></div><button class="x" onclick="closeModal()">×</button></div>
     <div class="mb">
@@ -1090,12 +1111,13 @@ async function saveAtuar(aid,mat){
   if(aid===3){
     const fa=v('a_fa'), st3=v('a_lst');
     const upd3={status_atuacao:st3, fatura_antecipada: st3==='FATURA ANTECIPADA'?'Sim':fa, novo_vencimento:null, observacao:v('a_obs')};
+    if(st3==='ENVIADO AO FATURAMENTO'){ const os=($('a_os').value||'').trim(); if(!os){ toast('Informe o número da O.S. de faturamento.',true); $('a_os').focus(); return; } upd3.os=os; }
     if(upd3.fatura_antecipada==='Sim'){ upd3.novo_vencimento=$('a_nv').value||null; if(!upd3.novo_vencimento){ toast('Informe a data do novo vencimento ajustado.',true); return; } }
     return gravarAtuacao(aid,mat,r,upd3);
   }
   const upd = aid===2 ? {status_atuacao:v('a_mot'),data_agendamento:v('a_ag'),observacao:v('a_obs')}
     : {acao_executivo:v('a_acao'),proposta:v('a_prop'),estagio:v('a_est'),retorno_cliente:v('a_ret'),
-       data_envio:v('a_env'),prazo_retorno:v('a_pra'),revalidacao:v('a_rev'),observacao:v('a_obs')};
+       data_envio:v('a_env'),prazo_retorno:v('a_pra'),revalidacao:v('a_rev'),visita_realizada:v('a_vis'),data_acao:v('a_dac'),observacao:v('a_obs')};
   return gravarAtuacao(aid,mat,r,upd);
 }
 async function gravarAtuacao(aid,mat,r,upd){
@@ -1113,7 +1135,7 @@ function exportAcao(){
   if(S.acaoSel===4){ nome='Projecao_de_Leitura';
     out=rows.map(r=>{ const p=proj(r); return {Classificação:r.prioridade,Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Carteira:r.carteira,SUP:r.regiao,Bairro:r.bairro,'Vol Orçado':p.vol_orc,'Vol Previsto':p.vol_prev,'Δ Volume':p.delta_vol,'Fat Orçado':p.fat_orc,'Fat Previsto':p.fat_prev,'Δ R$':+r.valor||0,Leitura:p.status,'Status de atuação':r.status_atuacao,Observação:r.observacao,'Outras ações':ob(r.matricula),'Atualizado em':fdt(r.atualizado_em)}; }); }
   else if(S.acaoSel===3){ nome='Lacuna_de_Vencimento';
-    out=rows.map(r=>({Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Carteira:r.carteira,'Vencimento original':r.vencimento,'Valor da fatura':+r.valor||0,'Perfil do cliente':perfilDe(r.matricula,r),'Fatura antecipada':r.fatura_antecipada,'Novo vencimento':r.novo_vencimento,Status:r.status_atuacao,Observação:r.observacao,'Status geral':r.status,'Outras ações':ob(r.matricula),'Atualizado em':fdt(r.atualizado_em)})); }
+    out=rows.map(r=>({Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Carteira:r.carteira,'Vencimento original':r.vencimento,'Valor da fatura':+r.valor||0,'Perfil do cliente':perfilDe(r.matricula,r),'Fatura antecipada':r.fatura_antecipada,'Novo vencimento':r.novo_vencimento,Status:r.status_atuacao,'O.S. de faturamento':r.os,Observação:r.observacao,'Status geral':r.status,'Outras ações':ob(r.matricula),'Atualizado em':fdt(r.atualizado_em)})); }
   else if(S.acaoSel==='saldo'){ nome='Saldo_de_Contas';
     out=rows.map(r=>({Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Carteira:r.carteira,'Saldo vencido':+r.saldo_vencido||0,'Notas vencidas':r.notas_vencidas,'Vencimento mais antigo':r.venc_mais_antigo,'Tipo de fatura':r.tipo_boleto,Aging:r.aging,Faixa:r.faixa,Diretoria:r.diretoria,Perfil:r.perfil,Classificação:r.classificacao,Situação:r.situacao,'Atuação em outras bases':ob(r.matricula)})); }
   else if(S.acaoSel===2){ nome='Acao_de_Cobranca';
@@ -1122,7 +1144,7 @@ function exportAcao(){
     out=rows.map(r=>({Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Base:r.origem,Situação:r.sit_ligacao,
     'Saldo vencido':+r.saldo_vencido||0,'Saldo a vencer':+r.saldo_a_vencer||0,Aging:r.aging,Economias:r.economias,Região:r.regiao,Bairro:r.bairro,
     Análise:r.analise,'Plano de ação':r.plano_acao,Tratativa:r.tratativa,'Ação do executivo':r.acao_executivo,Proposta:r.proposta,
-    'Estágio':r.estagio,'Data envio':r.data_envio,'Prazo retorno':r.prazo_retorno,'Retorno cliente':r.retorno_cliente,Revalidação:r.revalidacao,
+    'Estágio':r.estagio,'Data envio':r.data_envio,'Prazo retorno':r.prazo_retorno,'Retorno cliente':r.retorno_cliente,Revalidação:r.revalidacao,'Visita realizada':r.visita_realizada,'Data da ação':r.data_acao,
     Observação:r.observacao,Status:r.status,'Status por':r.status_origem,'Atuação em outras bases':ob(r.matricula),'Atualizado em':fdt(r.atualizado_em)})); }
   const ws=XLSX.utils.json_to_sheet(out), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,nome.slice(0,30));
   XLSX.writeFile(wb,`${nome}_${execFoco()||'todos'}_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -1131,7 +1153,7 @@ function exportAcao(){
 /* modal util */
 function modal(html){ $('modalRoot').innerHTML=`<div class="ov" onclick="if(event.target===this)closeModal()">${html}</div>`; }
 function closeModal(){ $('modalRoot').innerHTML=''; }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !S.trocarSenha) closeModal(); });
+document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return; if(document.querySelector('.obs-bg')) return fecharObs(); if(!S.trocarSenha) closeModal(); });
 
 /* =====================================================================
    ACOMPANHAMENTO DE CARTEIRA
@@ -1299,7 +1321,7 @@ function lupaEnter(){ const u=[...lupaUniverso().keys()], dig=S.lupa.q.replace(/
   const hit=u.includes(+dig)?+dig:(()=>{ const b=$('lupaRes').querySelector('.lupa-sug button'); return b?+b.querySelector('b').textContent:null; })();
   if(hit) lupaAbrir(hit); else if(dig) lupaAbrir(+dig); }
 const NOME_ACAO_L={1:'Ação 1 · Recuperação + TOP 100',2:'Ação de Cobrança',3:'Lacuna de Vencimento',4:'Projeção de Leitura'};
-const CAMPO_L={status:'Status',status_atuacao:'Status de atuação',data_agendamento:'Agendamento',fatura_antecipada:'Fatura antecipada',novo_vencimento:'Novo vencimento',
+const CAMPO_L={os:'O.S.',visita_realizada:'Visita realizada',data_acao:'Data da ação',status:'Status',status_atuacao:'Status de atuação',data_agendamento:'Agendamento',fatura_antecipada:'Fatura antecipada',novo_vencimento:'Novo vencimento',
   acao_executivo:'Ação do executivo',proposta:'Proposta',estagio:'Estágio',retorno_cliente:'Retorno do cliente',data_envio:'Data do envio',prazo_retorno:'Prazo de retorno',revalidacao:'Revalidação',observacao:'Observação'};
 async function lupaAbrir(m){
   S.lupa.m=m; S.lupa.q=String(m); const inp=$('lupaIn'); if(inp) inp.value=m;
@@ -1315,10 +1337,10 @@ function lupaDetalhe(m,hist){
   if(!any) return `<div class="msg info" style="margin-top:12px">Matrícula <b>${m}</b> não encontrada${S.gestao?'':' na sua carteira'}.</div>`;
   const cli=acs[0]?.cliente||recs[0]?.cliente||sd?.cliente||b?.cliente||'', ex=acs[0]?.executivo||b?.executivo||sd?.executivo||recs[0]?.executivo||'';
   const det=a=>{ const d=[];
-    if(a.acao_id===1){ [['Ação do executivo',a.acao_executivo],['Proposta',a.proposta],['Estágio',a.estagio],['Retorno do cliente',a.retorno_cliente],['Revalidação',a.revalidacao]].forEach(([l,v])=>v&&d.push([l,v])); if(a.saldo_vencido!=null) d.push(['Saldo vencido',money2(a.saldo_vencido)]); }
+    if(a.acao_id===1){ [['Ação do executivo',a.acao_executivo],['Proposta',a.proposta],['Estágio',a.estagio],['Retorno do cliente',a.retorno_cliente],['Revalidação',a.revalidacao],['Visita realizada',a.visita_realizada],['Data da ação',a.data_acao?fdate(a.data_acao):null]].forEach(([l,v])=>v&&d.push([l,v])); if(a.saldo_vencido!=null) d.push(['Saldo vencido',money2(a.saldo_vencido)]); }
     else { d.push(['Status de atuação',a.status_atuacao||'Sem atuação']);
       if(a.acao_id===2){ a.data_agendamento&&d.push(['Agendamento',fdate(a.data_agendamento)]); a.base_origem&&d.push(['Base',a.base_origem.trim()]); }
-      if(a.acao_id===3){ a.fatura_antecipada&&d.push(['Fatura antecipada',a.fatura_antecipada]); a.novo_vencimento&&d.push(['Novo vencimento',fdate(a.novo_vencimento)]); }
+      if(a.acao_id===3){ a.os&&d.push(['O.S. de faturamento',a.os]); a.fatura_antecipada&&d.push(['Fatura antecipada',a.fatura_antecipada]); a.novo_vencimento&&d.push(['Novo vencimento',fdate(a.novo_vencimento)]); }
       if(a.acao_id===4){ const p=proj(a); d.push(['Δ faturamento',money2(a.valor)],['Vol. previsto x orçado',`${fmtM3(p.vol_prev)} / ${fmtM3(p.vol_orc)}`]); p.status&&d.push(['Leitura',p.status]); return d; }
       a.valor!=null&&d.push([a.acao_id===3?'Valor da fatura':'Valor',money2(a.valor)]); a.vencimento&&d.push(['Vencimento',fdate(a.vencimento)]); }
     return d; };
@@ -1337,6 +1359,7 @@ function lupaDetalhe(m,hist){
     ${!acs.length&&!recs.length?`<div class="lupa-ac"><div class="lt"><span>Plano de atuação</span><span class="pill st-0">Fora do plano</span></div><p class="lo">Esta matrícula não está em nenhuma ação do plano de atuação.</p></div>`:''}
   </div>
   ${(sd||f.length)?`<div class="lupa-mini">${f.map(x=>`<span>Faturamento ${compLbl(S.cart.comp)}: venc. ${fdate(x.vencimento)} · ${money2(x.faturamento)} · <b>${esc(x.status==='Pagou'?'Pago':x.status)}</b></span>`).join('')}${sd?`<span>Saldo de contas: <b>${money2(sd.saldo_vencido)}</b>${sd.faixa?' · '+esc(sd.faixa):''}</span>`:''}</div>`:''}
+  <div class="lupa-mini" style="align-items:center"><span>Observação de controle:</span>${cobsCell(m)}</div>
   <h3 class="lupa-ht">Histórico de atuações</h3>
   <div class="hist">${hist.length?hist.map(h=>`<div><b>${esc(NOME_ACAO[h.acao_id]||'')} · ${esc(CAMPO_L[h.campo]||h.campo.replace(/_/g,' '))}</b>: ${esc(h.de||'—')} → <b>${esc(h.para||'—')}</b><br><span>${fdt(h.em)} · ${esc(h.por||'')}${h.origem==='plataforma'?' (automático)':''}</span></div>`).join(''):'<span class="mat">Nenhuma alteração registrada desde o início da plataforma.</span>'}</div>`;
 }
@@ -1453,11 +1476,11 @@ function lcRows(){ const q=norm(S.lc.q), pr=S.lc.pr||[]; return S.lc.rows.filter
 function lcTable(){
   const R=lcRows(); if(!R.length) return '<div class="card empty"><b>Nenhuma matrícula</b></div>';
   const ge=S.gestao&&!execFoco(), stP=s=>s?`<span class="pill ${s==='Pagou'?'st-3':s==='Vencido'?'st-4':'st-1'}">${s==='Pagou'?'Pago':esc(s)}</span>`:'<span class="mat">sem fatura</span>';
-  return `<div class="scroll" style="max-height:58vh"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}${S.lc.tipo==='p12'||S.lc.tipo==='cond'?'<th>Prioridade</th>':''}<th>Situação</th><th>Agrupamento</th><th>Superintendência</th><th>Vencimento</th><th class="r">Faturamento</th><th>Status</th><th>Plano de atuação</th></tr></thead><tbody>
+  return `<div class="scroll" style="max-height:58vh"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}${S.lc.tipo==='p12'||S.lc.tipo==='cond'?'<th>Prioridade</th>':''}<th>Situação</th><th>Agrupamento</th><th>Superintendência</th><th>Vencimento</th><th class="r">Faturamento</th><th>Status</th><th>Plano de atuação</th><th>Observação (controle)</th></tr></thead><tbody>
   ${R.slice(0,S.lc.lim).map(r=>`<tr style="cursor:pointer" title="Clique para ver todas as atuações" onclick="closeModal();lupaAbrirTopo(${r.matricula})"><td><div class="fc"><div class="fci"><span class="cli">${esc(r.cliente||'—')}</span><span class="mat">${r.matricula}${r.perfil?' · '+esc(r.perfil):''}</span></div><button class="btn sec sm">Ver</button></div></td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}${S.lc.tipo==='p12'||S.lc.tipo==='cond'?`<td>${r.con?`<span class="pill nopt ${/1/.test(r.con.prioridade)?'st-4':/2/.test(r.con.prioridade)?'st-5':'st-0'}">${esc((r.con.prioridade||'').replace('Prioridade ','P'))}</span>`:'—'}</td>`:''}
     <td>${r.sit==='Cortada'?'<span class="sit-c">Cortada</span>':esc(r.sit)}</td><td>${esc(r.agr)}</td><td>${esc(r.sup)}</td><td>${fdate(r.venc)}</td><td class="r num">${r.fat!=null?money2(r.fat):'—'}</td><td>${stP(r.status)}</td>
     <td class="wrap-c">${emPlano(r.matricula)||S.recup.some(x=>x.matricula===r.matricula)?outrasBases(r.matricula,null):'<span class="mat">—</span>'}</td>
-</tr>`).join('')}</tbody></table></div>
+    <td class="obs-td">${cobsCell(r.matricula)}</td></tr>`).join('')}</tbody></table></div>
   ${R.length>S.lc.lim?`<div class="more"><button class="btn sec sm" onclick="S.lc.lim+=300;$('lcTb').innerHTML=lcTable()">Mostrar mais (${int(R.length-S.lc.lim)} restantes)</button></div>`:''}
   <p class="mat" style="margin-top:8px">${int(R.length)} matrícula(s) · ${money2(R.reduce((s,r)=>s+(r.fat||0),0))} faturado</p>`;
 }
@@ -1468,6 +1491,32 @@ function exportLista(){
   XLSX.writeFile(wb,`carteira_${norm(S.lc.tit).slice(0,40)}_${S.cart.comp}.xlsx`);
 }
 function lupaAbrirTopo(m){ const el=$('lupaIn'); if(el) el.closest('.lupa').scrollIntoView({behavior:'smooth',block:'start'}); lupaAbrir(m); }
+
+/* ---------- Observação de controle do executivo (Carteira: vencidos / saldo) ---------- */
+function cobsCell(m){ const o=(S.cobs||{})[m];
+  return `<div class="cobs" onclick="event.stopPropagation();editCObs(${m})" title="${o?esc(o.observacao)+' · '+fdt(o.atualizado_em):'Clique para registrar uma observação de controle'}">${o?`<span class="cobs-t">${esc(o.observacao.length>90?o.observacao.slice(0,88)+'…':o.observacao)}</span><span class="mat">${fdate(o.atualizado_em)} ✎</span>`:'<span class="cobs-add">＋ observação</span>'}</div>`; }
+function execDaMat(m){ return (S.cart.base||{})[m]?.executivo || saldoMat(m)?.executivo || S.acao.find(a=>a.matricula===m&&a.executivo)?.executivo || execFoco() || (!S.gestao?(S.me.executivo||S.me.nome):null); }
+function editCObs(m){
+  const o=(S.cobs||{})[m], b=(S.cart.base||{})[m]||saldoMat(m)||{}, ex=execDaMat(m);
+  const nested=!!$('lcTb');
+  const html=`<div class="modal sm"><div class="mh"><div><h3>Observação de controle</h3><p>${esc(b.cliente||'')} · matrícula ${m}${ex?' · '+esc(ex):''}</p></div><button class="x" onclick="${nested?'fecharObs()':'closeModal()'}">×</button></div>
+    <div class="mb"><p class="mat" style="margin-bottom:8px">Anotação sua, para controle das matrículas vencidas ou com saldo que não estão em nenhuma ação. A gestão também vê.</p>
+      <textarea id="co_txt" rows="5" style="width:100%" placeholder="Ex.: cliente prometeu pagar dia 25 · enviado boleto por e-mail">${esc(o?.observacao||'')}</textarea>
+      ${o?`<p class="mat" style="margin-top:6px">Última atualização: ${fdt(o.atualizado_em)}${o.atualizado_por?' · '+esc(o.atualizado_por):''}</p>`:''}</div>
+    <div class="mf"><button class="btn sec" onclick="${nested?'fecharObs()':'closeModal()'}">Cancelar</button><button class="btn" onclick="saveCObs(${m},${nested})">Salvar</button></div></div>`;
+  if(nested){ const d=document.createElement('div'); d.className='ov obs-bg'; d.innerHTML=html; d.onclick=e=>{ if(e.target===d) fecharObs(); }; document.body.appendChild(d); setTimeout(()=>$('co_txt')?.focus(),50); }
+  else { modal(html); setTimeout(()=>$('co_txt')?.focus(),50); }
+}
+function fecharObs(){ document.querySelectorAll('.obs-bg').forEach(x=>x.remove()); }
+async function saveCObs(m,nested){
+  const t=($('co_txt').value||'').trim(), ex=execDaMat(m);
+  if(!ex&&!S.gestao) return toast('Não encontrei o executivo desta matrícula.',true);
+  if(!t){ const {error}=await sb.from('carteira_obs').delete().eq('matricula',m); if(error) return toast(error.message,true); delete S.cobs[m]; }
+  else { const {data,error}=await sb.from('carteira_obs').upsert({matricula:m,executivo:ex,observacao:t,atualizado_em:new Date().toISOString(),atualizado_por:S.me.email||null},{onConflict:'matricula'}).select().single(); if(error) return toast(error.message,true); S.cobs[m]=data; }
+  toast('Observação salva');
+  if(nested){ fecharObs(); if($('lcTb')) $('lcTb').innerHTML=lcTable(); }
+  else { closeModal(); if(typeof refreshSaldo==='function'&&$('saldoTb')) refreshSaldo(); if(S.lupa.m===m) lupaAbrir(m); }
+}
 </script>
 <script>
 /* =====================================================================
