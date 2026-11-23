@@ -916,7 +916,7 @@ function viewLacuna(){
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula ou cliente" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
     <select class="sel" onchange="S.f.motivo=this.value;render()"><option value="">Status: todos</option><option value="__sem" ${S.f.motivo==='__sem'?'selected':''}>Sem atuação</option>${sts.map(m=>`<option ${S.f.motivo===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
-    <div class="chips"><span class="mat" style="font-weight:700;align-self:center">Fatura antecipada:</span>${[['Sim','Sim'],['Não','Não'],['__sem','Não informado']].map(([v,l])=>`<button class="chip ${fon('fa',v)?'on':''}" onclick="setF('fa','${v}')">${l}</button>`).join('')}</div>
+    <div class="chips"><span class="mat" style="font-weight:700;align-self:center">Pode antecipar:</span>${[['Sim','Sim'],['Não','Não'],['__sem','Sem resposta']].map(([v,l])=>`<button class="chip ${fon('fa',v)?'on':''}" onclick="setF('fa','${v}')">${l}</button>`).join('')}</div>
   </div>
   ${perfis.length?`<div class="toolbar" style="margin-top:0"><span class="mat" style="font-weight:700">Perfil do cliente:</span><div class="chips">${perfis.map(v=>`<button class="chip ${fon('perfil3',v)?'on':''}" onclick="setF('perfil3','${esc(v)}')">${esc(v)}</button>`).join('')}</div></div>`:''}
   ${kAviso()}<div id="acaoTb">${lacTable(rows)}</div>`;
@@ -925,7 +925,7 @@ function lacTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=S.gestao&&!execFoco();
   return `<div class="scroll"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Carteira</th><th>Vencimento original</th><th class="r">Valor da fatura</th><th>Perfil do cliente</th>
-    <th>Fatura antecipada</th><th>Novo vencimento</th><th>Status</th><th>Observação</th><th>Outras ações</th></tr></thead><tbody>
+    <th>Pode antecipar?</th><th>Novo vencimento</th><th>Status</th><th>Observação</th><th>Outras ações</th></tr></thead><tbody>
     ${rows.map(r=>`<tr><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula}${r.sit_ligacao==='Cortada'?' · <span class="sit-c">Cortada</span>':''}</span></div><button class="btn sm" onclick="openAtuar(3,${r.matricula})">Atuar</button></div></td>${ge?`<td>${pessoa(r.executivo)}</td>`:''}
       <td>${esc(r.carteira||'—')}</td><td>${r.vencimento?fdate(r.vencimento):'<span class="mat">não informado</span>'}</td><td class="r num">${money2(r.valor)}</td>
       <td>${esc(perfilDe(r.matricula,r)||'—')}</td>
@@ -2659,10 +2659,9 @@ async function upLacuna(file){
         status_atuacao:e?.status_atuacao??null, fatura_antecipada:e?.fatura_antecipada??null, novo_vencimento:e?.novo_vencimento??null, observacao:e?.observacao??null,
         status:e?e.status:'Não iniciado', status_origem:e?e.status_origem:'base'}]; }).filter(Boolean)).values()];
     const naoVieram=Object.values(exist).filter(a=>!novos.some(n=>n.matricula===a.matricula));
-    let remover=naoVieram.filter(a=>a.status==='Não iniciado'&&!a.status_atuacao&&!a.fatura_antecipada);
-    if(remover.length && !confirm(`${remover.length} matrícula(s) que já estavam na base NÃO vieram neste arquivo e nunca foram atuadas.\n\nOK = retirar essas matrículas da ação\nCancelar = manter todas (só acrescentar as novas)`)) remover=[];
+    const remover=[];   // Lacuna: nunca retira matrículas, só acrescenta as novas
     const qtdNovas=novos.filter(n=>!exist[n.matricula]).length;
-    if(!confirm(`Lacuna de Vencimento: ${int(novos.length)} matrículas (${int(qtdNovas)} novas).\n${semVenc?`${semVenc} sem vencimento válido na planilha (ficam como "não informado").\n`:''}${remover.length?`${remover.length} saíram da base e nunca foram atuadas: serão retiradas.\n`:''}\nContinuar?`)) return;
+    if(!confirm(`Lacuna de Vencimento: ${int(qtdNovas)} matrícula(s) nova(s) serão acrescentadas.\nNada é retirado e as atuações já feitas continuam como estão.\n${semVenc?`${semVenc} sem vencimento válido na planilha (ficam como "não informado").\n`:''}${remover.length?`${remover.length} saíram da base e nunca foram atuadas: serão retiradas.\n`:''}\nContinuar?`)) return;
     prog('Gravando Lacuna de Vencimento…',0);
     await sb.from('acoes').upsert({id:3,nome:'Lacuna de Vencimento · puxar o vencimento para dentro do mês',inicio:new Date().toISOString().slice(0,10)},{onConflict:'id',ignoreDuplicates:true});
     for(let i=0;i<novos.length;i+=300){ const {error}=await sb.from('acao_base').upsert(novos.slice(i,i+300),{onConflict:'acao_id,matricula'}); if(error) throw error; prog('Gravando Lacuna de Vencimento…',Math.min(i+300,novos.length)/novos.length); }
