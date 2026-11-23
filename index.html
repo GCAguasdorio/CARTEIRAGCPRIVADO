@@ -2518,11 +2518,12 @@ async function upProjecao(file){
         status_atuacao:e?.status_atuacao??statusOk(g(r,'obs')), observacao:e?.observacao??null,
         status:e?e.status:(statusOk(g(r,'obs'))?'Em atuação':'Não iniciado'), status_origem:e?e.status_origem:'base'}]; })).values()];
     const naoVieram=Object.values(exist).filter(a=>!novos.some(n=>n.matricula===a.matricula));
-    const remover=naoVieram.filter(a=>a.status==='Não iniciado'&&!a.status_atuacao);
+    let remover=naoVieram.filter(a=>a.status==='Não iniciado'&&!a.status_atuacao);
+    if(remover.length && !confirm(`${remover.length} matrícula(s) que já estavam na base NÃO vieram neste arquivo e nunca foram atuadas.\n\nOK = retirar essas matrículas da ação\nCancelar = manter todas (só acrescentar as novas)`)) remover=[];
     const qtdNovas=novos.filter(n=>!exist[n.matricula]).length;
     if(!confirm(`Projeção de Leitura: ${int(novos.length)} matrículas (${int(qtdNovas)} novas).\n${semEx.length?`${semEx.length} sem executivo (nem na planilha nem na carteira do mês): só a gestão vê.\n`:''}${remover.length?`${remover.length} saíram da base e nunca foram atuadas: serão retiradas.\n`:''}\nContinuar?`)) return;
     prog('Gravando Projeção de Leitura…',0);
-    await sb.from('acoes').upsert({id:4,nome:'Projeção de Leitura · ofensores negativos (atuação preventiva)',inicio:new Date().toISOString().slice(0,10)},{onConflict:'id'});
+    await sb.from('acoes').upsert({id:4,nome:'Projeção de Leitura · ofensores negativos (atuação preventiva)',inicio:new Date().toISOString().slice(0,10)},{onConflict:'id',ignoreDuplicates:true});
     for(let i=0;i<novos.length;i+=300){ const {error}=await sb.from('acao_base').upsert(novos.slice(i,i+300),{onConflict:'acao_id,matricula'}); if(error) throw error; prog('Gravando Projeção de Leitura…',Math.min(i+300,novos.length)/novos.length); }
     for(let i=0;i<remover.length;i+=200){ const {error}=await sb.from('acao_base').delete().eq('acao_id',4).in('matricula',remover.slice(i,i+200).map(r=>r.matricula)); if(error) throw error; }
     await sb.from('cargas').insert({tipo:'projecao',competencia:nowComp(),arquivo:file.name,linhas:novos.length,detalhe:{novas:qtdNovas,retiradas:remover.length,sem_executivo:semEx.length}});
@@ -2550,11 +2551,12 @@ async function upLacuna(file){
         status_atuacao:e?.status_atuacao??null, fatura_antecipada:e?.fatura_antecipada??null, novo_vencimento:e?.novo_vencimento??null, observacao:e?.observacao??null,
         status:e?e.status:'Não iniciado', status_origem:e?e.status_origem:'base'}]; }).filter(Boolean)).values()];
     const naoVieram=Object.values(exist).filter(a=>!novos.some(n=>n.matricula===a.matricula));
-    const remover=naoVieram.filter(a=>a.status==='Não iniciado'&&!a.status_atuacao&&!a.fatura_antecipada);
+    let remover=naoVieram.filter(a=>a.status==='Não iniciado'&&!a.status_atuacao&&!a.fatura_antecipada);
+    if(remover.length && !confirm(`${remover.length} matrícula(s) que já estavam na base NÃO vieram neste arquivo e nunca foram atuadas.\n\nOK = retirar essas matrículas da ação\nCancelar = manter todas (só acrescentar as novas)`)) remover=[];
     const qtdNovas=novos.filter(n=>!exist[n.matricula]).length;
     if(!confirm(`Lacuna de Vencimento: ${int(novos.length)} matrículas (${int(qtdNovas)} novas).\n${semVenc?`${semVenc} sem vencimento válido na planilha (ficam como "não informado").\n`:''}${remover.length?`${remover.length} saíram da base e nunca foram atuadas: serão retiradas.\n`:''}\nContinuar?`)) return;
     prog('Gravando Lacuna de Vencimento…',0);
-    await sb.from('acoes').upsert({id:3,nome:'Lacuna de Vencimento · puxar o vencimento para dentro do mês',inicio:new Date().toISOString().slice(0,10)},{onConflict:'id'});
+    await sb.from('acoes').upsert({id:3,nome:'Lacuna de Vencimento · puxar o vencimento para dentro do mês',inicio:new Date().toISOString().slice(0,10)},{onConflict:'id',ignoreDuplicates:true});
     for(let i=0;i<novos.length;i+=300){ const {error}=await sb.from('acao_base').upsert(novos.slice(i,i+300),{onConflict:'acao_id,matricula'}); if(error) throw error; prog('Gravando Lacuna de Vencimento…',Math.min(i+300,novos.length)/novos.length); }
     for(let i=0;i<remover.length;i+=200){ const {error}=await sb.from('acao_base').delete().eq('acao_id',3).in('matricula',remover.slice(i,i+200).map(r=>r.matricula)); if(error) throw error; }
     await sb.from('cargas').insert({tipo:'lacuna',competencia:nowComp(),arquivo:file.name,linhas:novos.length,detalhe:{novas:qtdNovas,retiradas:remover.length,sem_vencimento:semVenc}});
@@ -2584,11 +2586,12 @@ async function upCobranca(file){
         status_atuacao:e?.status_atuacao??stAt, data_agendamento:e?.data_agendamento??toISO(g(r,'da')), observacao:e?.observacao??txt(g(r,'obs')),
         status:e?e.status:(stAt?'Em atuação':'Não iniciado'), status_origem:e?e.status_origem:'base'}]; }).filter(Boolean)).values()];
     const naoVieram=Object.values(exist).filter(a=>!novos.some(n=>n.matricula===a.matricula));
-    const remover=naoVieram.filter(a=>a.status==='Não iniciado'&&!a.status_atuacao);
+    let remover=naoVieram.filter(a=>a.status==='Não iniciado'&&!a.status_atuacao);
+    if(remover.length && !confirm(`${remover.length} matrícula(s) que já estavam na base NÃO vieram neste arquivo e nunca foram atuadas.\n\nOK = retirar essas matrículas da ação\nCancelar = manter todas (só acrescentar as novas)`)) remover=[];
     const qtdNovas=novos.filter(n=>!exist[n.matricula]).length;
     if(!confirm(`Ação de Cobrança: ${int(novos.length)} matrículas no arquivo (${int(qtdNovas)} novas).\n${remover.length?`${remover.length} saíram da base e nunca foram atuadas: serão retiradas.\n`:''}${naoVieram.length-remover.length?`${naoVieram.length-remover.length} saíram da base mas já têm atuação: ficam.\n`:''}\nContinuar?`)) return;
     prog('Gravando Ação de Cobrança…',0);
-    await sb.from('acoes').upsert({id:2,nome:'Ação de Cobrança · Frustrantes do mês + Base de Oportunidade',inicio:new Date().toISOString().slice(0,10)},{onConflict:'id'});
+    await sb.from('acoes').upsert({id:2,nome:'Ação de Cobrança · Frustrantes do mês + Base de Oportunidade',inicio:new Date().toISOString().slice(0,10)},{onConflict:'id',ignoreDuplicates:true});
     for(let i=0;i<novos.length;i+=300){ const {error}=await sb.from('acao_base').upsert(novos.slice(i,i+300),{onConflict:'acao_id,matricula'}); if(error) throw error; prog('Gravando Ação de Cobrança…',Math.min(i+300,novos.length)/novos.length); }
     for(let i=0;i<remover.length;i+=200){ const {error}=await sb.from('acao_base').delete().eq('acao_id',2).in('matricula',remover.slice(i,i+200).map(r=>r.matricula)); if(error) throw error; }
     await sb.from('cargas').insert({tipo:'acao_cobranca',competencia:nowComp(),arquivo:file.name,linhas:novos.length,detalhe:{novas:qtdNovas,retiradas:remover.length}});
