@@ -693,31 +693,8 @@ const L_STATUS_LACUNA = ['ENVIADO AO FATURAMENTO','PAGO','DÉBITO AUTOMÁTICO','
 const NOME_ACAO = {1:'Ação 1', 2:'Cobrança', 3:'Lacuna', 4:'Projeção', 5:'Antecipação', 6:'Base de Cobrança'};
 const ACOES_IDS = [1,2,3,4,5,6];
 const oculta = id => (S.acoes||[]).find(a=>a.id===id)?.ativa===false;
-const c6 = r => { const o=(r&&r.dados_origem&&r.dados_origem.cob6)||{}; const base={...o, check2: cobrarDe(o.check)||o.check2};
-  // cruza com o faturamento do mês mais recente (base Procx): novembro ainda a vencer / já pago
-  const nf=(S.fat6||{})[r?.matricula], chk=norm(o.check), precisaNov = r?.base_origem==='Novembro' || chk.includes('naopagounovembro') || chk.includes('nenhuma');
-  if(!nf||!precisaNov) return base;
-  const M=mesNome(S.fat6comp);
-  if(nf.status!=='Pagou' && nf.vencimento && nf.vencimento>=HOJE()){   // ainda não venceu hoje
-    if(chk.includes('nenhuma')) return {...base, check:`${o.check} · ${M} a vencer`, check2:'COBRAR OUTUBRO', novVenc:nf.vencimento, aVencer:true};
-    return {...base, check:`${M} a vencer`, check2:`AGUARDAR VENCIMENTO (${fdate(nf.vencimento).slice(0,5)})`, novVenc:nf.vencimento, aVencer:true, semAcao:true};
-  }
-  if(nf.status==='Pagou'){
-    if(chk.includes('nenhuma')) return {...base, check:`${o.check} · ${M} pago`, check2:'COBRAR OUTUBRO', novVenc:nf.vencimento, pagoNov:true};
-    if(r.base_origem==='Novembro'||chk.includes('pagououtubro')) return {...base, check:`${M} pago`, check2:'NADA A COBRAR', novVenc:nf.vencimento, pagoNov:true, semAcao:true};
-  }
-  return {...base, novVenc:nf.vencimento};
-};
-S.fat6=null; S.fat6t=0;
-function mesNome(comp){ const i=+(String(comp||'').slice(5,7))-1; return ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][i]||'Novembro'; }
-async function carregaFat6(){
-  const comp=compsDisponiveis()[0]; if(!comp) return;
-  if(S.fat6&&S.fat6comp===comp&&Date.now()-S.fat6t<300000) return;
-  const ms=[...new Set(S.acao.filter(a=>a.acao_id===6).map(a=>a.matricula))], out={};
-  for(let i=0;i<ms.length;i+=200){ const {data}=await sb.from('cart_faturamento').select('matricula,vencimento,status,faturamento').eq('competencia',comp).in('matricula',ms.slice(i,i+200));
-    (data||[]).forEach(f=>{ const x=out[f.matricula]; const ord={Vencido:0,'A vencer':1,Pagou:2}; if(!x||(ord[f.status]??3)<(ord[x.status]??3)) out[f.matricula]=f; }); }
-  S.fat6=out; S.fat6comp=comp; S.fat6t=Date.now();
-}
+const c6 = r => { const o=(r&&r.dados_origem&&r.dados_origem.cob6)||{}; return {...o, check2: cobrarDe(o.check)||o.check2}; };
+const L_MOTIVOS_COB6 = ['A VENCER'];
 function vencTag(d){ if(!d) return ''; const n=diasAte(d); return `<span class="pz ${n<0?'pz-v':n<=3?'pz-a':'pz-ok'}" style="margin-top:3px">${n<0?`venceu há ${-n} dia${n===-1?'':'s'}`:n===0?'vence hoje':`vence em ${n} dia${n>1?'s':''}`}</span>`; }
 // Check 2: cobrar a(s) referência(s) que não foram pagas
 function cobrarDe(check){ if(!check) return null; const t=norm(check);
@@ -781,7 +758,7 @@ const K_FILTROS={
      agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()]},
   3:{com:['Com atuação',r=>!!(r.status_atuacao||r.fatura_antecipada)], sem:['Sem atuação',r=>!(r.status_atuacao||r.fatura_antecipada)],
      ant:['Faturas antecipadas',r=>r.fatura_antecipada==='Sim'], pago:['Pagas',r=>r.status_atuacao==='PAGO'], pasim:['Pode antecipar · Sim',r=>r.pode_antecipar==='Sim'], panao:['Pode antecipar · Não',r=>r.pode_antecipar==='Não']},
-  6:{com:['Com atuação',r=>!!r.status_atuacao], sem:['Sem atuação',r=>!r.status_atuacao], agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()], avencer:['Nada a cobrar agora',r=>!!c6(r).semAcao]},
+  6:{com:['Com atuação',r=>!!r.status_atuacao], sem:['Sem atuação',r=>!r.status_atuacao], agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()], avencer:['A vencer',r=>r.status_atuacao==='A VENCER']},
   5:{com:['Com atuação',r=>!!r.status_atuacao], sem:['Sem atuação',r=>!r.status_atuacao], sim:['Vão antecipar',r=>r.fatura_antecipada==='Sim'], nao:['Não vão antecipar',r=>r.fatura_antecipada==='Não']},
   4:{com:['Com atuação',r=>!!r.status_atuacao], sem:['Sem atuação',r=>!r.status_atuacao], fat:['Já faturadas',r=>proj(r).status==='Faturado'], prev:['Ainda em previsão',r=>proj(r).status!=='Faturado']}
 };
@@ -876,7 +853,7 @@ function viewAcao(){
   ${kAviso()}<div id="acaoTb">${acaoTable(rows)}</div>`;
 }
 function refreshAcaoTable(){ $('acaoTb').innerHTML=S.acaoSel===2?cobTable(acaoFiltrada()):S.acaoSel===3?lacTable(acaoFiltrada()):S.acaoSel===4?projTable(acaoFiltrada()):S.acaoSel===5?antTable(acaoFiltrada()):S.acaoSel===6?cob6Table(acaoFiltrada()):acaoTable(acaoFiltrada()); }
-function afterAcao(){ if(S.acaoSel===6&&!S.fat6) carregaFat6().then(()=>{ if(S.tab==='acao'&&S.acaoSel===6) render(); }).catch(()=>{}); }
+function afterAcao(){}
 function acaoTable(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=S.gestao&&!execFoco();
@@ -1083,14 +1060,14 @@ function viewBaseCob(){
   const com=all.filter(r=>r.status_atuacao), hoje=HOJE(), agend=all.filter(r=>r.data_agendamento&&r.data_agendamento>=hoje), sem=all.filter(r=>!r.status_atuacao);
   const refs=[...new Set(all.map(r=>r.base_origem).filter(Boolean))].sort((a,b)=>a.startsWith('Out')?-1:1);
   const checks=[...new Set(all.map(r=>c6(r).check).filter(Boolean))].sort();
-  const ks=[...L_MOTIVOS_COB,...new Set(all.map(r=>r.status_atuacao).filter(x=>x&&!L_MOTIVOS_COB.includes(x)))];
+  const ks=[...new Set([...L_MOTIVOS_COB6,...L_MOTIVOS_COB,...all.map(r=>r.status_atuacao).filter(Boolean)])];
   return `<div class="msg info" style="margin-top:18px">Clientes das referências <b>Outubro</b> e <b>Novembro</b> que ficaram sem pagar. <b>Check</b> = situação atual · <b>Check 2</b> = qual referência cobrar (a que não foi paga). A atuação é igual à da Ação de Cobrança.</div>
   <div class="kpis">
     ${kc('','hero-k',`<div class="l">Matrículas</div><div class="v">${int(all.length)}</div><div class="s">${money(val(all))} em débito</div>`)}
     ${kc('com','c3',`<div class="l">Com atuação</div><div class="v">${int(com.length)}</div><div class="s">${pct(com.length/all.length,0)} · ${money(val(com))}</div>${barra(com.length,all.length,'var(--leaf)')}`)}
     ${kc('sem','c4',`<div class="l">Sem atuação</div><div class="v">${int(sem.length)}</div><div class="s">${money(val(sem))}</div>`)}
     ${kc('agend','c5',`<div class="l">Pagamento agendado</div><div class="v">${int(agend.length)}</div><div class="s">a partir de hoje · ${money(val(agend))}</div>`)}
-    ${kc('avencer','c2',`<div class="l">Nada a cobrar agora</div><div class="v">${S.fat6?int(all.filter(r=>c6(r).semAcao).length):'…'}</div><div class="s">${S.fat6?`${int(all.filter(r=>c6(r).aVencer&&c6(r).semAcao).length)} a vencer · ${int(all.filter(r=>c6(r).pagoNov&&c6(r).semAcao).length)} já pagas`:'consultando faturamento do mês…'}</div>`)}
+    ${kc('avencer','c2',`<div class="l">A vencer</div><div class="v">${int(all.filter(r=>r.status_atuacao==='A VENCER').length)}</div><div class="s">${(()=>{ const p=all.filter(r=>r.status_atuacao==='A VENCER'&&r.novo_vencimento).map(r=>r.novo_vencimento).sort()[0]; return p?'próximo vencimento '+fdate(p):'informado pelo executivo no Atuar'; })()}</div>`)}
   </div>
   <div class="card" style="margin-top:18px"><h3>Status de atuação <small>clique em uma ou mais barras para filtrar a tabela</small></h3>${barrasLaterais([...(sem.length?[['Sem atuação',sem.length,val(sem)]]:[]),...ks.map(k=>{ const x=all.filter(r=>r.status_atuacao===k); return [k,x.length,val(x)]; }).filter(x=>x[1])],'satu')}</div>
   <div class="toolbar">
@@ -1105,13 +1082,12 @@ function cob6Table(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=S.gestao&&!execFoco();
   return `<div class="scroll"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Check · status atual</th><th>Check 2 · o executivo deverá fazer</th><th>Vencimento</th><th class="r">Débito</th><th>Status de atuação</th><th>Agendamento</th><th>Observação</th><th>Outras ações</th></tr></thead><tbody>
-    ${rows.map(r=>{ const c=c6(r); return `<tr${c.semAcao?' class="row-av"':''}><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula} · ${esc(r.base_origem||'')}</span></div><button class="btn sm" onclick="openAtuar(6,${r.matricula})">Atuar</button></div></td>${ge?`<td>${r.executivo?pessoa(r.executivo):'<span class="mat">sem executivo</span>'}</td>`:''}
-      <td class="wrap-c">${esc(c.check||'—')}</td><td class="wrap-c"><b style="color:${c.semAcao?'var(--text-mut)':'var(--navy)'}">${esc(c.check2||'COBRAR')}</b></td>
-      <td>${fdate(r.vencimento)}${c.novVenc&&c.novVenc!==r.vencimento?`<br><span class="mat">${esc(mesNome(S.fat6comp))}: ${fdate(c.novVenc)}</span>`:''}${c.aVencer?'<br>'+vencTag(c.novVenc):''}</td>
-      <td class="r num">${money2(r.valor)}</td>
-      <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}${r.status!=='Não iniciado'&&r.status!=='Em atuação'?`<br>${stPill(r.status)}`:''}</td>
+    ${rows.map(r=>{ const c=c6(r), av=r.status_atuacao==='A VENCER'; return `<tr><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula} · ${esc(r.base_origem||'')}</span></div><button class="btn sm" onclick="openAtuar(6,${r.matricula})">Atuar</button></div></td>${ge?`<td>${r.executivo?pessoa(r.executivo):'<span class="mat">sem executivo</span>'}</td>`:''}
+      <td class="wrap-c">${esc(c.check||'—')}</td><td class="wrap-c"><b>${esc(c.check2||'COBRAR')}</b></td>
+      <td>${fdate(r.vencimento)}</td><td class="r num">${money2(r.valor)}</td>
+      <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}${av&&r.novo_vencimento?`<br><span class="mat">vence ${fdate(r.novo_vencimento)}</span><br>${vencTag(r.novo_vencimento)}`:''}${r.status!=='Não iniciado'&&r.status!=='Em atuação'?`<br>${stPill(r.status)}`:''}</td>
       <td>${fdate(r.data_agendamento)}</td><td class="wrap-c obs-td">${obsCell(r)}</td><td class="wrap-c">${outrasBases(r.matricula,6)}</td></tr>`; }).join('')}
-  </tbody></table></div><p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}${S.fat6?` · a vencer/pago conferido no faturamento de ${compLbl(S.fat6comp)}`:''}</p>`;
+  </tbody></table></div><p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}</p>`;
 }
 
 /* ---------- Saldo de Contas ---------- */
@@ -1212,7 +1188,7 @@ async function openAtuar(aid,mat){
     : lac
     ? [['Carteira',r.carteira],['Vencimento original',fdate(r.vencimento)],['Valor da fatura',money2(r.valor)],['Perfil do cliente',perfilDe(mat,r)],['Situação',r.sit_ligacao]]
     : cb6
-    ? [['Referência',r.base_origem],['Check · status atual',c6(r).check],['Check 2 · o executivo deverá fazer',c6(r).check2],[`Vencimento ${mesNome(S.fat6comp).toLowerCase()}`,c6(r).novVenc?fdate(c6(r).novVenc):null],['Vencimento',fdate(r.vencimento)],['Débito',money2(r.valor)],['Carteira',r.carteira],['Diretoria',r.regiao]]
+    ? [['Referência',r.base_origem],['Check · status atual',c6(r).check],['Check 2 · o executivo deverá fazer',c6(r).check2],['Vencimento',fdate(r.vencimento)],['Débito',money2(r.valor)],['Carteira',r.carteira],['Diretoria',r.regiao]]
     : cob
     ? [['Carteira',r.carteira],['Vencimento',fdate(r.vencimento)],['Valor',money2(r.valor)],['Aging',r.aging!=null?r.aging+' dias':null],['Perfil de pagamento',r.perfil_pagamento],['Base',r.base_origem],['Situação',r.sit_ligacao],['Diretoria',r.regiao],['Pagou no mês',r.pagou_mes]]
     : [['Situação',r.sit_ligacao],['Saldo vencido',money2(r.saldo_vencido)],['Saldo a vencer',money2(r.saldo_a_vencer)],['Aging',r.aging!=null?r.aging+' dias':null],
@@ -1233,6 +1209,10 @@ async function openAtuar(aid,mat){
         <div class="fld full" id="a_osW" style="display:${r.status_atuacao==='ENVIADO AO FATURAMENTO'?'':'none'}"><label>Nº da O.S. de faturamento <span style="color:var(--rose)">*</span></label><input id="a_os" value="${esc(r.os||'')}" placeholder="Ex.: 2026/3035597"><span class="help">Obrigatório quando o status é Enviado ao faturamento.</span></div>
         <div class="fld"><label>Fatura antecipada?</label><select id="a_fa" onchange="$('a_nvW').style.opacity=this.value==='Sim'?1:.45;$('a_nv').disabled=this.value!=='Sim'">${opts(['Sim','Não'],r.fatura_antecipada)}</select></div>
         <div class="fld" id="a_nvW" style="opacity:${r.fatura_antecipada==='Sim'?1:.45}"><label>Novo vencimento ajustado</label><input type="date" id="a_nv" value="${r.novo_vencimento||''}" ${r.fatura_antecipada==='Sim'?'':'disabled'}><span class="help">Preencha quando a fatura for antecipada.</span></div>`
+    : cb6 ? `
+        <div class="fld full"><label>Status de atuação</label><select id="a_mot" onchange="$('a_nvW').style.display=this.value==='A VENCER'?'':'none'">${opts([...L_MOTIVOS_COB6,...L_MOTIVOS_COB],r.status_atuacao)}</select></div>
+        <div class="fld full" id="a_nvW" style="display:${r.status_atuacao==='A VENCER'?'':'none'}"><label>Data de vencimento <span style="color:var(--rose)">*</span></label><input type="date" id="a_nv" value="${r.status_atuacao==='A VENCER'&&r.novo_vencimento||''}"><span class="help">A fatura ainda não venceu: informe quando vence.</span></div>
+        <div class="fld"><label>Data de agendamento</label><input type="date" id="a_ag" value="${r.data_agendamento||''}"></div>`
     : cob ? `
         <div class="fld full"><label>Status de atuação</label><select id="a_mot">${opts(L_MOTIVOS_COB,r.status_atuacao)}</select></div>
         <div class="fld"><label>Data de agendamento</label><input type="date" id="a_ag" value="${r.data_agendamento||''}"></div>`
@@ -1293,7 +1273,9 @@ async function saveAtuar(aid,mat){
     if(upd3.fatura_antecipada==='Sim'){ upd3.novo_vencimento=$('a_nv').value||null; if(!upd3.novo_vencimento){ toast('Informe a data do novo vencimento ajustado.',true); return; } }
     return gravarAtuacao(aid,mat,r,upd3);
   }
-  const upd = (aid===2||aid===6) ? {status_atuacao:v('a_mot'),data_agendamento:v('a_ag'),observacao:v('a_obs')}
+  if(aid===6&&v('a_mot')==='A VENCER'&&!v('a_nv')){ toast('Informe a data de vencimento.',true); $('a_nv').focus(); return; }
+  const upd = aid===6 ? {status_atuacao:v('a_mot'),novo_vencimento:v('a_mot')==='A VENCER'?v('a_nv'):null,data_agendamento:v('a_ag'),observacao:v('a_obs')}
+    : (aid===2) ? {status_atuacao:v('a_mot'),data_agendamento:v('a_ag'),observacao:v('a_obs')}
     : {acao_executivo:v('a_acao'),proposta:v('a_prop'),estagio:v('a_est'),retorno_cliente:v('a_ret'),
        data_envio:v('a_env'),prazo_retorno:v('a_pra'),revalidacao:v('a_rev'),visita_realizada:v('a_vis'),data_acao:v('a_dac'),observacao:v('a_obs')};
   return gravarAtuacao(aid,mat,r,upd);
@@ -1311,7 +1293,7 @@ function exportAcao(){
   const rows=acaoFiltrada(); let out, nome;
   const ob=m=>outrasBases(m,S.acaoSel).replace(/<[^>]+>/g,'').replace(/\s+/g,' ').replace(/^—$/,'').trim();
   if(S.acaoSel===6){ nome='Base_de_Cobranca';
-    out=rows.map(r=>({Referência:r.base_origem,Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,'Check (status atual)':c6(r).check,'Check 2 (o executivo deverá fazer)':c6(r).check2,'Vencimento mês atual':c6(r).novVenc?fdate(c6(r).novVenc):'',Vencimento:r.vencimento?fdate(r.vencimento):'',Débito:+r.valor||0,'Status de atuação':r.status_atuacao||'Sem atuação',Agendamento:r.data_agendamento?fdate(r.data_agendamento):'',Observação:r.observacao,'Outras ações':ob(r.matricula),'Atualizado por':r.atualizado_por,'Atualizado em':fdt(r.atualizado_em)})); }
+    out=rows.map(r=>({Referência:r.base_origem,Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,'Check (status atual)':c6(r).check,'Check 2 (o executivo deverá fazer)':c6(r).check2,Vencimento:r.vencimento?fdate(r.vencimento):'',Débito:+r.valor||0,'Status de atuação':r.status_atuacao||'Sem atuação','Vencimento (A vencer)':r.status_atuacao==='A VENCER'&&r.novo_vencimento?fdate(r.novo_vencimento):'',Agendamento:r.data_agendamento?fdate(r.data_agendamento):'',Observação:r.observacao,'Outras ações':ob(r.matricula),'Atualizado por':r.atualizado_por,'Atualizado em':fdt(r.atualizado_em)})); }
   else if(S.acaoSel===5){ nome='Antecipacao_de_Vencimento';
     out=rows.map(r=>({Matrícula:r.matricula,Cliente:r.cliente,Carteira:r.carteira,Executivo:r.executivo,Faturamento:+r.valor||0,Vencimento:r.vencimento?fdate(r.vencimento):'','Pode antecipar?':r.fatura_antecipada||'','Novo vencimento':r.novo_vencimento?fdate(r.novo_vencimento):'','Status / justificativa':r.status_atuacao||'Sem atuação',Observação:r.observacao,'Outras ações':ob(r.matricula),'Atualizado por':r.atualizado_por,'Atualizado em':fdt(r.atualizado_em)})); }
   else if(S.acaoSel===4){ nome='Projecao_de_Leitura';
@@ -1523,7 +1505,7 @@ function lupaDetalhe(m,hist){
     else { d.push(['Status de atuação',a.status_atuacao||'Sem atuação']);
       if(a.acao_id===2){ a.data_agendamento&&d.push(['Agendamento',fdate(a.data_agendamento)]); a.base_origem&&d.push(['Base',a.base_origem.trim()]); }
       if(a.acao_id===3){ a.pode_antecipar&&d.push(['Pode antecipar',a.pode_antecipar+(a.data_antecipar?' · '+fdate(a.data_antecipar):'')]); a.os&&d.push(['O.S. de faturamento',a.os]); a.fatura_antecipada&&d.push(['Fatura antecipada',a.fatura_antecipada]); a.novo_vencimento&&d.push(['Novo vencimento',fdate(a.novo_vencimento)]); }
-      if(a.acao_id===6){ d.push(['Referência',a.base_origem],['Check',c6(a).check],['Check 2',c6(a).check2],['Débito',money2(a.valor)],['Vencimento',fdate(a.vencimento)]); a.data_agendamento&&d.push(['Agendamento',fdate(a.data_agendamento)]); return d; }
+      if(a.acao_id===6){ d.push(['Referência',a.base_origem],['Check',c6(a).check],['Check 2',c6(a).check2],...(a.status_atuacao==='A VENCER'&&a.novo_vencimento?[['A vencer em',fdate(a.novo_vencimento)]]:[]),['Débito',money2(a.valor)],['Vencimento',fdate(a.vencimento)]); a.data_agendamento&&d.push(['Agendamento',fdate(a.data_agendamento)]); return d; }
       if(a.acao_id===5){ d.push(['Faturamento',money2(a.valor)],['Vencimento',fdate(a.vencimento)]); a.fatura_antecipada&&d.push(['Pode antecipar',a.fatura_antecipada]); a.novo_vencimento&&d.push(['Novo vencimento',fdate(a.novo_vencimento)]); return d; }
       if(a.acao_id===4){ const p=proj(a); d.push(['Δ faturamento',money2(a.valor)],['Vol. previsto x orçado',`${fmtM3(p.vol_prev)} / ${fmtM3(p.vol_orc)}`]); p.status&&d.push(['Leitura',p.status]); return d; }
       a.valor!=null&&d.push([a.acao_id===3?'Valor da fatura':'Valor',money2(a.valor)]); a.vencimento&&d.push(['Vencimento',fdate(a.vencimento)]); }
