@@ -691,7 +691,14 @@ const L_STATUS_LACUNA = ['ENVIADO AO FATURAMENTO','PAGO','DÉBITO AUTOMÁTICO','
 const NOME_ACAO = {1:'Ação 1', 2:'Cobrança', 3:'Lacuna', 4:'Projeção', 5:'Antecipação', 6:'Base de Cobrança'};
 const ACOES_IDS = [1,2,3,4,5,6];
 const oculta = id => (S.acoes||[]).find(a=>a.id===id)?.ativa===false;
-const c6 = r => (r&&r.dados_origem&&r.dados_origem.cob6)||{};
+const c6 = r => { const o=(r&&r.dados_origem&&r.dados_origem.cob6)||{}; return {...o, check2: cobrarDe(o.check)||o.check2}; };
+// Check 2: cobrar a(s) referência(s) que não foram pagas
+function cobrarDe(check){ if(!check) return null; const t=norm(check);
+  const MES=['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'], NOME=['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+  if(t.includes('naopagounenhuma')){ const ms=MES.map((m,i)=>[m,i]).filter(([m])=>t.includes(m)).map(([,i])=>NOME[i]); return 'COBRAR '+(ms.length?ms.join(' E '):'OUTUBRO E NOVEMBRO'); }
+  const k=t.indexOf('naopagou'); if(k<0) return null; const resto=t.slice(k+8);
+  const ms=MES.map((m,i)=>[resto.indexOf(m),i]).filter(([p])=>p>=0).sort((a,b)=>a[0]-b[0]).map(([,i])=>NOME[i]);
+  return ms.length?'COBRAR '+ms.join(' E '):null; }
 const L_JUST_ANTEC = ['PAGO','DÉBITO AUTOMÁTICO','PARCELADO','ISENTA','EM CONTATO COM O CLIENTE, INFORMOU QUE NÃO PODE ANTECIPAR','CLIENTE INADIMPLENTE/CORTADO','PAGAMENTO SERÁ ANTECIPADO/VIA BOLETO','FATURA EM CONTESTAÇÃO','PAGAMENTO SERÁ ANTECIPADO/VIA PIX OU TED','FLUTUANTE/PERFIL ESCORREGADIO - JÁ TEVE PAGAMENTO NO MÊS ATUAL','FATURÃO'];
 function dataAlvo(id){ return (S.acoes||[]).find(a=>a.id===id)?.data_alvo || '2026-11-26'; }
 function maisDias(iso,n){ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
@@ -1050,7 +1057,7 @@ function viewBaseCob(){
   const refs=[...new Set(all.map(r=>r.base_origem).filter(Boolean))].sort((a,b)=>a.startsWith('Out')?-1:1);
   const checks=[...new Set(all.map(r=>c6(r).check).filter(Boolean))].sort();
   const ks=[...L_MOTIVOS_COB,...new Set(all.map(r=>r.status_atuacao).filter(x=>x&&!L_MOTIVOS_COB.includes(x)))];
-  return `<div class="msg info" style="margin-top:18px">Clientes das referências <b>Outubro</b> e <b>Novembro</b> que ficaram sem pagar. <b>Check</b> = situação atual · <b>Check 2</b> = o que o executivo deverá fazer (cobrar). A atuação é igual à da Ação de Cobrança.</div>
+  return `<div class="msg info" style="margin-top:18px">Clientes das referências <b>Outubro</b> e <b>Novembro</b> que ficaram sem pagar. <b>Check</b> = situação atual · <b>Check 2</b> = qual referência cobrar (a que não foi paga). A atuação é igual à da Ação de Cobrança.</div>
   <div class="kpis">
     ${kc('','hero-k',`<div class="l">Matrículas</div><div class="v">${int(all.length)}</div><div class="s">${money(val(all))} em débito</div>`)}
     ${kc('com','c3',`<div class="l">Com atuação</div><div class="v">${int(com.length)}</div><div class="s">${pct(com.length/all.length,0)} · ${money(val(com))}</div>${barra(com.length,all.length,'var(--leaf)')}`)}
@@ -1071,7 +1078,7 @@ function cob6Table(rows){
   return `<div class="scroll"><table class="fix"><thead><tr><th>Matrícula</th><th>Cliente</th><th>Check · status atual</th><th>Check 2 · o executivo deverá fazer</th><th>Vencimento</th><th class="r">Débito</th></tr></thead><tbody>
     ${rows.map(r=>`<tr><td><div class="fc" style="min-width:150px"><b>${r.matricula}</b><button class="btn sm" onclick="openAtuar(6,${r.matricula})">Atuar</button></div></td>
       <td class="wrap-c"><span class="cli" style="max-width:none" title="${esc(r.cliente)}">${esc(r.cliente)}</span></td>
-      <td class="wrap-c">${esc(c6(r).check||'—')}</td><td><b>${esc(c6(r).check2||'Cobrar')}</b></td>
+      <td class="wrap-c">${esc(c6(r).check||'—')}</td><td><b>${esc(c6(r).check2||'COBRAR')}</b></td>
       <td>${fdate(r.vencimento)}</td><td class="r num">${money2(r.valor)}</td></tr>`).join('')}
   </tbody></table></div><p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}</p>`;
 }
@@ -1174,7 +1181,7 @@ async function openAtuar(aid,mat){
     : lac
     ? [['Carteira',r.carteira],['Vencimento original',fdate(r.vencimento)],['Valor da fatura',money2(r.valor)],['Perfil do cliente',perfilDe(mat,r)],['Situação',r.sit_ligacao]]
     : cb6
-    ? [['Referência',r.base_origem],['Check · status atual',c6(r).check],['Check 2 · o executivo deverá fazer',c6(r).check2||'Cobrar'],['Vencimento',fdate(r.vencimento)],['Débito',money2(r.valor)],['Carteira',r.carteira],['Diretoria',r.regiao]]
+    ? [['Referência',r.base_origem],['Check · status atual',c6(r).check],['Check 2 · o executivo deverá fazer',c6(r).check2],['Vencimento',fdate(r.vencimento)],['Débito',money2(r.valor)],['Carteira',r.carteira],['Diretoria',r.regiao]]
     : cob
     ? [['Carteira',r.carteira],['Vencimento',fdate(r.vencimento)],['Valor',money2(r.valor)],['Aging',r.aging!=null?r.aging+' dias':null],['Perfil de pagamento',r.perfil_pagamento],['Base',r.base_origem],['Situação',r.sit_ligacao],['Diretoria',r.regiao],['Pagou no mês',r.pagou_mes]]
     : [['Situação',r.sit_ligacao],['Saldo vencido',money2(r.saldo_vencido)],['Saldo a vencer',money2(r.saldo_a_vencer)],['Aging',r.aging!=null?r.aging+' dias':null],
@@ -1273,7 +1280,7 @@ function exportAcao(){
   const rows=acaoFiltrada(); let out, nome;
   const ob=m=>outrasBases(m,S.acaoSel).replace(/<[^>]+>/g,'').replace(/\s+/g,' ').replace(/^—$/,'').trim();
   if(S.acaoSel===6){ nome='Base_de_Cobranca';
-    out=rows.map(r=>({Referência:r.base_origem,Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,'Check (status atual)':c6(r).check,'Check 2 (o executivo deverá fazer)':c6(r).check2||'Cobrar',Vencimento:r.vencimento?fdate(r.vencimento):'',Débito:+r.valor||0,'Status de atuação':r.status_atuacao||'Sem atuação',Agendamento:r.data_agendamento?fdate(r.data_agendamento):'',Observação:r.observacao,'Outras ações':ob(r.matricula),'Atualizado por':r.atualizado_por,'Atualizado em':fdt(r.atualizado_em)})); }
+    out=rows.map(r=>({Referência:r.base_origem,Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,'Check (status atual)':c6(r).check,'Check 2 (o executivo deverá fazer)':c6(r).check2,Vencimento:r.vencimento?fdate(r.vencimento):'',Débito:+r.valor||0,'Status de atuação':r.status_atuacao||'Sem atuação',Agendamento:r.data_agendamento?fdate(r.data_agendamento):'',Observação:r.observacao,'Outras ações':ob(r.matricula),'Atualizado por':r.atualizado_por,'Atualizado em':fdt(r.atualizado_em)})); }
   else if(S.acaoSel===5){ nome='Antecipacao_de_Vencimento';
     out=rows.map(r=>({Matrícula:r.matricula,Cliente:r.cliente,Carteira:r.carteira,Executivo:r.executivo,Faturamento:+r.valor||0,Vencimento:r.vencimento?fdate(r.vencimento):'','Pode antecipar?':r.fatura_antecipada||'','Novo vencimento':r.novo_vencimento?fdate(r.novo_vencimento):'','Status / justificativa':r.status_atuacao||'Sem atuação',Observação:r.observacao,'Outras ações':ob(r.matricula),'Atualizado por':r.atualizado_por,'Atualizado em':fdt(r.atualizado_em)})); }
   else if(S.acaoSel===4){ nome='Projecao_de_Leitura';
@@ -2666,7 +2673,7 @@ async function upBaseCob(file){
         const e=exist[m];
         out.set(m,{acao_id:6,matricula:m,cliente:r[ic]!=null?String(r[ic]).trim():null,carteira:icar>=0&&r[icar]!=null?String(r[icar]).trim():null,regiao:idir>=0?r[idir]:null,
           valor:+r[idb]||null,vencimento:toISO(r[iv]),base_origem:ref,executivo:e?.executivo||null,
-          dados_origem:{cob6:{check:ich>=0&&r[ich]?String(r[ich]).trim():(ref==='Novembro'?'Não pagou novembro':null),check2:'Cobrar'}},
+          dados_origem:{cob6:{check:ich>=0&&r[ich]?String(r[ich]).trim():(ref==='Novembro'?'Não pagou novembro':null),check2:null}},
           status:e?e.status:'Não iniciado',status_origem:e?e.status_origem:'base'});
         if(!e?.executivo) precisaEx.push(m); }
     }
