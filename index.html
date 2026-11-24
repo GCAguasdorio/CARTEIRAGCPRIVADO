@@ -617,12 +617,13 @@ function execList(){
 function tabsDef(){
   const pendR=S.recup.filter(r=>r.status==='Pendente').length, pendJ=S.just.filter(j=>j.status==='Pendente').length;
   const t=[['acao','Plano de Atuação'],['carteira','Carteira'],['recup','Recuperação de Cortados'],['cadpes','Cadastral & Pesquisa'],['plr','Metas PLR']];
-  if(S.gestao){ t.splice(1,0,['gerencial','Visão Gerencial'],['sla','SLAs']); t.push(['aprov','Aprovações', pendR+(S.validaPlr?pendJ:0)],['gestao','Gestão']); }
+  if(S.gestao){ t.splice(1,0,['gerencial','Visão Gerencial'],['sla','SLAs'],['ctl','Controle de atuação']); t.push(['aprov','Aprovações', pendR+(S.validaPlr?pendJ:0)],['gestao','Gestão']); }
   return t;
 }
 function go(tab){ S.tab=tab; history.replaceState(null,'','#'+tab); render(); window.scrollTo({top:0,behavior:'smooth'}); }
 function setVer(v){ S.ver=v; S.cart.loaded=null; render(); }
 const ICONS={
+  ctl:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M8 14l2 2 4-4"/>',
   sla:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>',
   acao:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   carteira:'<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12.5" y="8" width="3" height="10"/><rect x="18" y="5" width="3" height="13"/>',
@@ -645,9 +646,9 @@ function render(){
   $('nav').innerHTML = tabsDef().map(([k,l,b])=>`<button class="${S.tab===k?'on':''}" onclick="go('${k}')">${ico(k)}${l}${b?`<span class="badge">${b}</span>`:''}</button>`).join('')
     + `<button class="sair" onclick="logout()">${ico('sair')}Sair</button>`;
   renderHero();
-  const v={sla:viewSla,gerencial:viewGerencial,acao:viewAcao,carteira:viewCarteira,recup:viewRecup,cadpes:viewCadPes,plr:viewPlr,aprov:viewAprov,gestao:viewGestao}[S.tab];
+  const v={ctl:viewCtl,sla:viewSla,gerencial:viewGerencial,acao:viewAcao,carteira:viewCarteira,recup:viewRecup,cadpes:viewCadPes,plr:viewPlr,aprov:viewAprov,gestao:viewGestao}[S.tab];
   $('main').innerHTML = v();
-  ({sla:afterSla,gerencial:afterGerencial,carteira:afterCarteira,cadpes:afterCadPes,acao:afterAcao,plr:afterPlr}[S.tab]||(()=>{}))();
+  ({ctl:afterCtl,sla:afterSla,gerencial:afterGerencial,carteira:afterCarteira,cadpes:afterCadPes,acao:afterAcao,plr:afterPlr}[S.tab]||(()=>{}))();
 }
 /* fotos: as do Painel Time vêm embutidas; a gestão pode trocar/incluir (tabela fotos_executivos) */
 function fotoDe(n){ return n && ((S.fotos||{})[n] || FOTOS_PADRAO[n]) || null; }
@@ -2381,6 +2382,118 @@ async function afterGerencial(){
     ${sd.length?`<div style="cursor:pointer" onclick="S.ctab='saldo';go('carteira')"><h3 style="margin-top:18px">Saldo de Contas <small>base ${fdate(sd[0].data_base)} · ${int(sd.length)} matrículas · ${money(sv(sd))} · ${pct(sdCom.length/sd.length,0)} com plano de atuação</small></h3>
       <div class="kpis" style="margin-top:6px">${faixas.map(f=>{ const x=sd.filter(r=>r.faixa===f), c=x.filter(r=>emPlano(r.matricula)); return `<div class="k ${/Acima/.test(f)?'c4':/1 a 30/.test(f)?'c2':'c5'}"><div class="l">${f}</div><div class="v">${money(sv(x))}</div><div class="s">${int(x.length)} matrículas · ${int(c.length)} com plano</div></div>`; }).join('')}</div></div>`:''}
   </div>`;
+}
+</script>
+<script>
+/* =====================================================================
+   CONTROLE DE ATUAÇÃO (gestão) · atuações dos executivos por dia / semana / mês
+   ===================================================================== */
+S.ctl={per:'dia',de:'',ate:'',dados:null,t:0,acoes:[],ex:''};
+const NOME_ACAO_CTL={1:'Ação 1',2:'Ação de Cobrança',3:'Lacuna de Vencimento',4:'Projeção de Leitura',5:'Antecipação de Vencimento',6:'Base de Cobrança',rec:'Recuperação de Cortados',obs:'Obs. de controle (Carteira)'};
+function viewCtl(){
+  if(!S.gestao) return '<div class="card empty"><b>Só a gestão vê o controle de atuação</b></div>';
+  const P=[['dia','Diário'],['sem','Semanal'],['mes','Mensal']];
+  return `<div class="sec-h"><div><h2>Controle de atuação</h2><p>Todas as atuações registradas pelos executivos na plataforma${execFoco()?' · '+esc(execFoco()):''}</p></div></div>
+  <div class="toolbar">
+    <div class="chips" id="ctlPer">${P.map(([k,l])=>`<button class="chip ${S.ctl.per===k?'on':''}" onclick="S.ctl.per='${k}';document.querySelectorAll('#ctlPer .chip').forEach(b=>b.classList.toggle('on',b===this));$('ctlBox').innerHTML=ctlHTML()">${l}</button>`).join('')}</div>
+    <label class="mat" style="display:flex;gap:6px;align-items:center">De <input type="date" class="sel" value="${S.ctl.de}" onchange="S.ctl.de=this.value;$('ctlBox').innerHTML=ctlHTML()"></label>
+    <label class="mat" style="display:flex;gap:6px;align-items:center">Até <input type="date" class="sel" value="${S.ctl.ate}" onchange="S.ctl.ate=this.value;$('ctlBox').innerHTML=ctlHTML()"></label>
+    <button class="btn" onclick="exportCtl()">⬇ Exportar relatório (Excel)</button>
+  </div>
+  <div id="ctlBox"><div class="loading"><div class="spin"></div>Carregando atuações…</div></div>`;
+}
+async function afterCtl(){
+  try{
+    if(!S.ctl.dados||Date.now()-S.ctl.t>60000){
+      const [h,rc,co]=await Promise.all([
+        fetchAll(()=>sb.from('acao_historico').select('acao_id,matricula,campo,de,para,origem,por,em').eq('origem','manual').order('em')),
+        fetchAll(()=>sb.from('recuperacoes').select('*').order('criado_em')),
+        fetchAll(()=>sb.from('carteira_obs').select('*').order('atualizado_em'))]);
+      S.ctl.dados=ctlMonta(h,rc,co); S.ctl.t=Date.now();
+    }
+    if(S.tab==='ctl'&&$('ctlBox')) $('ctlBox').innerHTML=ctlHTML();
+  }catch(e){ $('ctlBox')&&($('ctlBox').innerHTML=`<div class="msg err">${esc(e.message||e)}</div>`); }
+}
+function nomeDeEmail(em,fallback){
+  if(!em) return fallback||'—'; const e=String(em).toLowerCase();
+  const u=(S.usuarios||[]).find(x=>(x.email||'').toLowerCase()===e); if(u) return u.executivo||u.nome;
+  return fallback||e.split('@')[0];
+}
+function ctlMonta(hist,recs,cobs){
+  // cada "salvar" gera várias linhas no histórico (uma por campo): junta em uma atuação
+  const g=new Map();
+  for(const h of hist){ const k=`${h.acao_id}|${h.matricula}|${h.por||''}|${String(h.em).slice(0,19)}`; let a=g.get(k);
+    if(!a){ const b=S.acao.find(x=>x.acao_id===h.acao_id&&x.matricula===h.matricula)||{}; a={tipo:h.acao_id,matricula:h.matricula,cliente:b.cliente||'',dono:b.executivo||'',por:nomeDeEmail(h.por,b.executivo),email:h.por,em:new Date(h.em),campos:[],status:null,obs:null}; g.set(k,a); }
+    a.campos.push(`${CAMPO_L[h.campo]||h.campo}: ${h.para??'—'}`); if(h.campo==='status_atuacao'||(h.campo==='status'&&!a.status)) a.status=h.para; if(h.campo==='observacao') a.obs=h.para; }
+  const L=[...g.values()];
+  for(const r of recs) L.push({tipo:'rec',matricula:r.matricula,cliente:r.cliente||'',dono:r.executivo||'',por:nomeDeEmail(r.solicitante_email,r.executivo),email:r.solicitante_email,em:new Date(r.criado_em),campos:[`Pagamento: ${r.tipo_pagamento||''}`,`Saldo c/ desconto: ${money2(r.saldo_desconto)}`],status:'Solicitada · '+(r.status||''),obs:r.resumo||null});
+  for(const o of cobs) L.push({tipo:'obs',matricula:o.matricula,cliente:(S.cart.base||{})[o.matricula]?.cliente||saldoMat(o.matricula)?.cliente||'',dono:o.executivo||'',por:nomeDeEmail(o.atualizado_por,o.executivo),email:o.atualizado_por,em:new Date(o.atualizado_em),campos:[],status:'Observação de controle',obs:o.observacao});
+  // só executivos (tira a gestão) e respeita "Ver como"
+  const gest=new Set((S.usuarios||[]).filter(u=>u.papel==='gestao').map(u=>(u.email||'').toLowerCase()));
+  return L.filter(a=>!gest.has((a.email||'').toLowerCase())).sort((a,b)=>a.em-b.em);
+}
+const pad2=n=>String(n).padStart(2,'0');
+function diaBR(d){ return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`; }
+function chavePer(d,per){
+  if(per==='mes') return [`${d.getFullYear()}-${pad2(d.getMonth()+1)}`, `${['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][d.getMonth()]}/${String(d.getFullYear()).slice(2)}`];
+  if(per==='sem'){ const s=new Date(d); s.setHours(0,0,0,0); s.setDate(s.getDate()-((s.getDay()+6)%7)); const e=new Date(s); e.setDate(s.getDate()+6);
+    return [s.toISOString().slice(0,10), `${pad2(s.getDate())}/${pad2(s.getMonth()+1)} a ${pad2(e.getDate())}/${pad2(e.getMonth()+1)}`]; }
+  return [`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`, `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}`];
+}
+function ctlFiltrados(){
+  let L=S.ctl.dados||[]; const de=S.ctl.de?new Date(S.ctl.de+'T00:00:00'):null, ate=S.ctl.ate?new Date(S.ctl.ate+'T23:59:59'):null;
+  if(de) L=L.filter(a=>a.em>=de); if(ate) L=L.filter(a=>a.em<=ate);
+  const f=execFoco(); if(f) L=L.filter(a=>a.por===f||a.dono===f);
+  return L;
+}
+function ctlPivot(L,per){
+  const pers=new Map(), ex={}, tot={};
+  for(const a of L){ const [k,l]=chavePer(a.em,per); pers.set(k,l); const e=a.por||'—';
+    (ex[e]=ex[e]||{t:0,m:new Set(),p:{}}); ex[e].t++; ex[e].m.add(a.tipo+'|'+a.matricula); ex[e].p[k]=(ex[e].p[k]||0)+1; tot[k]=(tot[k]||0)+1; }
+  const ks=[...pers.keys()].sort(); return {ks,lbl:pers,ex,tot};
+}
+function ctlHTML(){
+  const L=ctlFiltrados(); if(!L.length) return '<div class="card empty"><b>Nenhuma atuação no período</b>Ajuste as datas acima.</div>';
+  const per=S.ctl.per, {ks,lbl,ex,tot}=ctlPivot(L,per), hoje=chavePer(new Date(),per)[0];
+  const exs=Object.entries(ex).sort((a,b)=>b[1].t-a[1].t), ultK=ks.slice(-(per==='dia'?14:per==='sem'?10:12));
+  const porAcao={}; L.forEach(a=>porAcao[a.tipo]=(porAcao[a.tipo]||0)+1);
+  const hojeN=tot[hoje]||0, execHoje=exs.filter(([,v])=>v.p[hoje]).length, todosEx=(S.usuarios||[]).filter(u=>u.papel!=='gestao'&&u.ativo!==false&&u.executivo&&(!execFoco()||u.executivo===execFoco()));
+  const semHoje=todosEx.filter(u=>!(ex[u.executivo]&&ex[u.executivo].p[hoje]));
+  const pl=per==='dia'?'hoje':per==='sem'?'nesta semana':'neste mês';
+  return `<div class="kpis">
+    <div class="k hero-k"><div class="l">Atuações no período</div><div class="v">${int(L.length)}</div><div class="s">${int(new Set(L.map(a=>a.tipo+'|'+a.matricula)).size)} matrículas diferentes · ${diaBR(L[0].em)} a ${diaBR(L.at(-1).em)}</div></div>
+    <div class="k c3"><div class="l">Atuações ${pl}</div><div class="v">${int(hojeN)}</div><div class="s">${int(execHoje)} executivo(s) atuaram</div></div>
+    <div class="k c4"><div class="l">Sem atuação ${pl}</div><div class="v">${int(semHoje.length)}</div><div class="s">${semHoje.slice(0,4).map(u=>esc(u.executivo.split(' ')[0])).join(', ')}${semHoje.length>4?'…':''}</div></div>
+    <div class="k"><div class="l">Média por ${per==='dia'?'dia':per==='sem'?'semana':'mês'}</div><div class="v">${(L.length/Math.max(1,ks.length)).toLocaleString('pt-BR',{maximumFractionDigits:1})}</div><div class="s">${int(ks.length)} ${per==='dia'?'dias':per==='sem'?'semanas':'meses'} com atuação</div></div>
+  </div>
+  <div class="card" style="margin-top:18px"><h3>Atuações por ${per==='dia'?'dia':per==='sem'?'semana':'mês'} <small>últimos ${ultK.length}</small></h3>
+    <div class="hbars">${ultK.slice().reverse().map(k=>{ const n=tot[k]||0, mx=Math.max(...ultK.map(x=>tot[x]||0),1); return `<div class="hb" style="cursor:default"><span class="hl">${esc(lbl.get(k))}${k===hoje?' · <b style="color:var(--water)">atual</b>':''}</span><span class="ht"><i style="width:${Math.max(2,n/mx*100)}%;background:${k===hoje?AZ.medio:AZ.forte}"></i></span><span class="hv"><b>${int(n)}</b> atuações</span></div>`; }).join('')}</div></div>
+  <div class="card" style="margin-top:18px"><h3>Por executivo <small>atuações em cada ${per==='dia'?'dia':per==='sem'?'semana':'mês'} · clique no nome para ver o detalhe</small></h3>
+    <div class="scroll"><table class="fix"><thead><tr><th>Executivo</th><th class="r">Total</th><th class="r">Matrículas</th>${ultK.map(k=>`<th class="r">${esc(lbl.get(k))}</th>`).join('')}</tr></thead><tbody>
+    ${exs.map(([e,v])=>`<tr style="cursor:pointer" onclick="ctlDet('${esc(e)}')"><td>${pessoa(e)}</td><td class="r"><b>${int(v.t)}</b></td><td class="r">${int(v.m.size)}</td>${ultK.map(k=>`<td class="r num ${!v.p[k]?'mat':''}">${v.p[k]||'—'}</td>`).join('')}</tr>`).join('')}
+    ${semHoje.filter(u=>!ex[u.executivo]).map(u=>`<tr><td>${pessoa(u.executivo)}</td><td class="r sla-ruim">0</td><td class="r">0</td>${ultK.map(()=>'<td class="r mat">—</td>').join('')}</tr>`).join('')}
+    <tr><td><b>Total</b></td><td class="r"><b>${int(L.length)}</b></td><td></td>${ultK.map(k=>`<td class="r"><b>${tot[k]||0}</b></td>`).join('')}</tr></tbody></table></div>
+    ${ks.length>ultK.length?`<p class="mat" style="margin-top:6px">A tabela mostra os últimos ${ultK.length}. O Excel traz todos os ${ks.length}.</p>`:''}</div>
+  <div class="card" style="margin-top:18px"><h3>Por ação</h3><div class="hbars">${Object.entries(porAcao).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<div class="hb" style="cursor:default"><span class="hl">${esc(NOME_ACAO_CTL[k]||k)}</span><span class="ht"><i style="width:${n/L.length*100}%;background:${AZ.medio}"></i></span><span class="hv"><b>${int(n)}</b> · ${pct(n/L.length,0)}</span></div>`).join('')}</div></div>`;
+}
+function ctlDet(e){
+  const L=ctlFiltrados().filter(a=>a.por===e).sort((a,b)=>b.em-a.em);
+  modal(`<div class="modal lg"><div class="mh">${av(e,44)}<div><h3>${esc(e)}</h3><p>${int(L.length)} atuações${S.ctl.de||S.ctl.ate?` · ${S.ctl.de?fdate(S.ctl.de):'início'} a ${S.ctl.ate?fdate(S.ctl.ate):'hoje'}`:' até hoje'}</p></div><button class="x" onclick="closeModal()">×</button></div>
+    <div class="mb"><div class="scroll" style="max-height:60vh"><table><thead><tr><th>Data / hora</th><th>Ação</th><th>Matrícula / cliente</th><th>O que registrou</th><th>Observação</th></tr></thead><tbody>
+    ${L.map(a=>`<tr><td class="num">${fdt(a.em.toISOString())}</td><td>${esc(NOME_ACAO_CTL[a.tipo]||a.tipo)}</td><td><span class="cli">${esc(a.cliente)}</span><span class="mat">${a.matricula}</span></td><td class="wrap-c">${esc(a.campos.join(' · ')||a.status||'')}</td><td class="wrap-c">${esc((a.obs||'').slice(0,160))}</td></tr>`).join('')}</tbody></table></div></div></div>`);
+}
+function exportCtl(){
+  const L=ctlFiltrados(); if(!L.length) return toast('Nenhuma atuação no período.',true);
+  const wb=XLSX.utils.book_new(), col=(ws,w)=>ws['!cols']=w.map(x=>({wch:x}));
+  const det=L.map(a=>({Data:diaBR(a.em),Hora:`${pad2(a.em.getHours())}:${pad2(a.em.getMinutes())}`,Semana:chavePer(a.em,'sem')[1],Mês:chavePer(a.em,'mes')[1],Executivo:a.por,'Executivo da carteira':a.dono,Ação:NOME_ACAO_CTL[a.tipo]||a.tipo,Matrícula:a.matricula,Cliente:a.cliente,'Status registrado':a.status||'','O que registrou':a.campos.join(' · '),Observação:a.obs||''}));
+  for(const [per,nome] of [['dia','Diário'],['sem','Semanal'],['mes','Mensal']]){
+    const {ks,lbl,ex,tot}=ctlPivot(L,per);
+    const rows=Object.entries(ex).sort((a,b)=>b[1].t-a[1].t).map(([e,v])=>({Executivo:e,Total:v.t,'Matrículas diferentes':v.m.size,...Object.fromEntries(ks.map(k=>[lbl.get(k),v.p[k]||0]))}));
+    rows.push({Executivo:'TOTAL',Total:L.length,'Matrículas diferentes':'',...Object.fromEntries(ks.map(k=>[lbl.get(k),tot[k]||0]))});
+    const ws=XLSX.utils.json_to_sheet(rows); col(ws,[26,8,12,...ks.map(()=>12)]); XLSX.utils.book_append_sheet(wb,ws,nome);
+  }
+  const ws=XLSX.utils.json_to_sheet(det); col(ws,[11,6,16,8,24,24,24,12,40,26,60,60]); XLSX.utils.book_append_sheet(wb,ws,'Atuações (detalhe)');
+  XLSX.writeFile(wb,`Controle_de_atuacao_${new Date().toISOString().slice(0,10)}.xlsx`); toast(`${L.length} atuações exportadas`);
 }
 </script>
 <script>
