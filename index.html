@@ -1698,7 +1698,7 @@ function slaCalc(id,hist){
     const ev=(byM[r.matricula]||[]).map(h=>({...h,t:new Date(h.em).getTime()})).sort((a,b)=>a.t-b.t);
     let t0=r.entrou_em?new Date(r.entrou_em).getTime():ini?new Date(ini+'T08:00:00').getTime():(ev[0]?.t??now);
     if(ev.length&&ev[0].t<t0) t0=ev[0].t;
-    const pm=ev.find(e=>e.origem==='manual'), fe=ev.find(e=>fim(r,e));
+    const pm=ev.find(e=>e.por&&e.por!=='plataforma'), fe=ev.find(e=>fim(r,e));
     // etapas
     const evE=ev.filter(e=>e.campo===campoEt);
     let et=evE.length?(evE[0].de||null):(r[campoEt]||null), tE=t0;
@@ -2406,7 +2406,7 @@ async function afterCtl(){
   try{
     if(!S.ctl.dados||Date.now()-S.ctl.t>60000){
       const [h,rc,co]=await Promise.all([
-        fetchAll(()=>sb.from('acao_historico').select('acao_id,matricula,campo,de,para,origem,por,em').eq('origem','manual').order('em')),
+        fetchAll(()=>sb.from('acao_historico').select('acao_id,matricula,campo,de,para,origem,por,em').not('por','is',null).neq('por','plataforma').order('em')),
         fetchAll(()=>sb.from('recuperacoes').select('*').order('criado_em')),
         fetchAll(()=>sb.from('carteira_obs').select('*').order('atualizado_em'))]);
       S.ctl.dados=ctlMonta(h,rc,co); S.ctl.t=Date.now();
@@ -2417,7 +2417,11 @@ async function afterCtl(){
 function nomeDeEmail(em,fallback){
   if(!em) return fallback||'—'; const e=String(em).toLowerCase();
   const u=(S.usuarios||[]).find(x=>(x.email||'').toLowerCase()===e); if(u) return u.executivo||u.nome;
-  return fallback||e.split('@')[0];
+  if(!e.includes('@')) return em;                       // já é um nome
+  const partes=e.split('@')[0].split(/[._-]+/).map(norm).filter(Boolean);
+  const nomes=[...new Set([...(S.usuarios||[]).map(u=>u.executivo).filter(Boolean),...S.acao.map(a=>a.executivo).filter(Boolean)])];
+  const hit=nomes.find(n=>partes.every(p=>norm(n).includes(p)));
+  return hit||fallback||e.split('@')[0];
 }
 function ctlMonta(hist,recs,cobs){
   // cada "salvar" gera várias linhas no histórico (uma por campo): junta em uma atuação
