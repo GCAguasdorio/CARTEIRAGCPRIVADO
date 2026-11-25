@@ -693,7 +693,7 @@ const L_STATUS_LACUNA = ['ENVIADO AO FATURAMENTO','PAGO','DÉBITO AUTOMÁTICO','
 const NOME_ACAO = {1:'Ação 1', 2:'Cobrança', 3:'Lacuna', 4:'Projeção', 5:'Antecipação', 6:'Base de Cobrança'};
 const ACOES_IDS = [1,2,3,4,5,6];
 const oculta = id => (S.acoes||[]).find(a=>a.id===id)?.ativa===false;
-const c6 = r => { const o=(r&&r.dados_origem&&r.dados_origem.cob6)||{}; return {...o, check2: cobrarDe(o.check)||o.check2}; };
+const c6 = r => { const o=(r&&r.dados_origem&&r.dados_origem.cob6)||{}; const na=norm(o.check).includes('pagouambas')||o.check2==='NÃO ATUAR'||o.check2==='NADA A COBRAR'; return {...o, naoAtuar:na, check2: na?'NÃO ATUAR':(cobrarDe(o.check)||o.check2)}; };
 const L_MOTIVOS_COB6 = ['A VENCER'];
 function vencTag(d){ if(!d) return ''; const n=diasAte(d); return `<span class="pz ${n<0?'pz-v':n<=3?'pz-a':'pz-ok'}" style="margin-top:3px">${n<0?`venceu há ${-n} dia${n===-1?'':'s'}`:n===0?'vence hoje':`vence em ${n} dia${n>1?'s':''}`}</span>`; }
 // Check 2: cobrar a(s) referência(s) que não foram pagas
@@ -758,7 +758,7 @@ const K_FILTROS={
      agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()]},
   3:{com:['Com atuação',r=>!!(r.status_atuacao||r.fatura_antecipada)], sem:['Sem atuação',r=>!(r.status_atuacao||r.fatura_antecipada)],
      ant:['Faturas antecipadas',r=>r.fatura_antecipada==='Sim'], pago:['Pagas',r=>r.status_atuacao==='PAGO'], pasim:['Pode antecipar · Sim',r=>r.pode_antecipar==='Sim'], panao:['Pode antecipar · Não',r=>r.pode_antecipar==='Não']},
-  6:{com:['Com atuação',r=>!!r.status_atuacao], sem:['Sem atuação',r=>!r.status_atuacao], agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()], avencer:['A vencer',r=>r.status_atuacao==='A VENCER']},
+  6:{naoat:['Não atuar · pagou ambas',r=>c6(r).naoAtuar], com:['Com atuação',r=>!!r.status_atuacao], sem:['Sem atuação',r=>!r.status_atuacao&&!c6(r).naoAtuar], agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()], avencer:['A vencer',r=>r.status_atuacao==='A VENCER']},
   5:{com:['Com atuação',r=>!!r.status_atuacao], sem:['Sem atuação',r=>!r.status_atuacao], sim:['Vão antecipar',r=>r.fatura_antecipada==='Sim'], nao:['Não vão antecipar',r=>r.fatura_antecipada==='Não']},
   4:{com:['Com atuação',r=>!!r.status_atuacao], sem:['Sem atuação',r=>!r.status_atuacao], fat:['Já faturadas',r=>proj(r).status==='Faturado'], prev:['Ainda em previsão',r=>proj(r).status!=='Faturado']}
 };
@@ -1055,37 +1055,38 @@ async function toggleOculta(id){
 
 /* ---------- Base de Cobrança · Out/Nov (acao 6) ---------- */
 function viewBaseCob(){
-  const all=acaoDe(6), rows=acaoFiltrada(), val=a=>a.reduce((s,r)=>s+(+r.valor||0),0);
-  if(!all.length) return `<div class="card empty"><b>Sem Base de Cobrança</b>${S.gestao?'Anexe a base em Gestão › Cargas.':'A gestão ainda não carregou a base.'}</div>`;
+  const todos=acaoDe(6), all=todos.filter(r=>!c6(r).naoAtuar), naoAt=todos.filter(r=>c6(r).naoAtuar), rows=acaoFiltrada(), val=a=>a.reduce((s,r)=>s+(+r.valor||0),0);
+  if(!todos.length) return `<div class="card empty"><b>Sem Base de Cobrança</b>${S.gestao?'Anexe a base em Gestão › Cargas.':'A gestão ainda não carregou a base.'}</div>`;
   const com=all.filter(r=>r.status_atuacao), hoje=HOJE(), agend=all.filter(r=>r.data_agendamento&&r.data_agendamento>=hoje), sem=all.filter(r=>!r.status_atuacao);
-  const refs=[...new Set(all.map(r=>r.base_origem).filter(Boolean))].sort((a,b)=>a.startsWith('Out')?-1:1);
-  const checks=[...new Set(all.map(r=>c6(r).check).filter(Boolean))].sort();
+  const refs=[...new Set(todos.map(r=>r.base_origem).filter(Boolean))].sort((a,b)=>a.startsWith('Out')?-1:1);
+  const checks=[...new Set(todos.map(r=>c6(r).check).filter(Boolean))].sort();
   const ks=[...new Set([...L_MOTIVOS_COB6,...L_MOTIVOS_COB,...all.map(r=>r.status_atuacao).filter(Boolean)])];
   return `<div class="msg info" style="margin-top:18px">Clientes das referências <b>Outubro</b> e <b>Novembro</b> que ficaram sem pagar. <b>Check</b> = situação atual · <b>Check 2</b> = qual referência cobrar (a que não foi paga). A atuação é igual à da Ação de Cobrança.</div>
   <div class="kpis">
-    ${kc('','hero-k',`<div class="l">Matrículas</div><div class="v">${int(all.length)}</div><div class="s">${money(val(all))} em débito</div>`)}
+    ${kc('','hero-k',`<div class="l">Matrículas para atuar</div><div class="v">${int(all.length)}</div><div class="s">${money(val(all))} em débito${naoAt.length?` · +${naoAt.length} não atuar`:''}</div>`)}
     ${kc('com','c3',`<div class="l">Com atuação</div><div class="v">${int(com.length)}</div><div class="s">${pct(com.length/all.length,0)} · ${money(val(com))}</div>${barra(com.length,all.length,'var(--leaf)')}`)}
     ${kc('sem','c4',`<div class="l">Sem atuação</div><div class="v">${int(sem.length)}</div><div class="s">${money(val(sem))}</div>`)}
     ${kc('agend','c5',`<div class="l">Pagamento agendado</div><div class="v">${int(agend.length)}</div><div class="s">a partir de hoje · ${money(val(agend))}</div>`)}
+    ${naoAt.length?kc('naoat','',`<div class="l">Não atuar · pagou ambas</div><div class="v">${int(naoAt.length)}</div><div class="s">aparecem só para consulta</div>`):''}
     ${kc('avencer','c2',`<div class="l">A vencer</div><div class="v">${int(all.filter(r=>r.status_atuacao==='A VENCER').length)}</div><div class="s">${(()=>{ const p=all.filter(r=>r.status_atuacao==='A VENCER'&&r.novo_vencimento).map(r=>r.novo_vencimento).sort()[0]; return p?'próximo vencimento '+fdate(p):'informado pelo executivo no Atuar'; })()}</div>`)}
   </div>
   <div class="card" style="margin-top:18px"><h3>Status de atuação <small>clique em uma ou mais barras para filtrar a tabela</small></h3>${barrasLaterais([...(sem.length?[['Sem atuação',sem.length,val(sem)]]:[]),...ks.map(k=>{ const x=all.filter(r=>r.status_atuacao===k); return [k,x.length,val(x)]; }).filter(x=>x[1])],'satu')}</div>
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula ou cliente" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
-    <div class="chips"><span class="mat" style="font-weight:700;align-self:center">Referência:</span>${refs.map(b=>`<button class="chip ${fon('base',b)?'on':''}" onclick="setF('base','${esc(b)}')">${esc(b)} <span class="n">${all.filter(r=>r.base_origem===b).length}</span></button>`).join('')}</div>
+    <div class="chips"><span class="mat" style="font-weight:700;align-self:center">Referência:</span>${refs.map(b=>`<button class="chip ${fon('base',b)?'on':''}" onclick="setF('base','${esc(b)}')">${esc(b)} <span class="n">${todos.filter(r=>r.base_origem===b).length}</span></button>`).join('')}</div>
   </div>
   <div class="toolbar" style="margin-top:0"><span class="mat" style="font-weight:700">Check:</span>
-    <div class="chips">${checks.map(b=>`<button class="chip ${fon('sp4',b)?'on':''}" onclick="setF('sp4','${esc(b)}')">${esc(b)} <span class="n">${all.filter(r=>c6(r).check===b).length}</span></button>`).join('')}</div></div>
+    <div class="chips">${checks.map(b=>`<button class="chip ${fon('sp4',b)?'on':''}" onclick="setF('sp4','${esc(b)}')">${esc(b)} <span class="n">${todos.filter(r=>c6(r).check===b).length}</span></button>`).join('')}</div></div>
   ${kAviso()}<div id="acaoTb">${cob6Table(rows)}</div>`;
 }
 function cob6Table(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=S.gestao&&!execFoco();
   return `<div class="scroll"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Check · status atual</th><th>Check 2 · o executivo deverá fazer</th><th>Vencimento</th><th class="r">Débito</th><th>Status de atuação</th><th>Agendamento</th><th>Observação</th><th>Outras ações</th></tr></thead><tbody>
-    ${rows.map(r=>{ const c=c6(r), av=r.status_atuacao==='A VENCER'; return `<tr><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula} · ${esc(r.base_origem||'')}</span></div><button class="btn sm" onclick="openAtuar(6,${r.matricula})">Atuar</button></div></td>${ge?`<td>${r.executivo?pessoa(r.executivo):'<span class="mat">sem executivo</span>'}</td>`:''}
-      <td class="wrap-c">${esc(c.check||'—')}</td><td class="wrap-c"><b>${esc(c.check2||'COBRAR')}</b></td>
+    ${rows.map(r=>{ const c=c6(r), av=r.status_atuacao==='A VENCER'; return `<tr><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula} · ${esc(r.base_origem||'')}${c.fora_base?' · <span class="sit-c">saiu da base (mantida pela atuação)</span>':''}</span></div>${c.naoAtuar&&!r.status_atuacao?'<span class="pill st-0" title="Pagou ambas: não é para atuar">Não atuar</span>':`<button class="btn sm" onclick="openAtuar(6,${r.matricula})">Atuar</button>`}</div></td>${ge?`<td>${r.executivo?pessoa(r.executivo):'<span class="mat">sem executivo</span>'}</td>`:''}
+      <td class="wrap-c">${esc(c.check||'—')}</td><td class="wrap-c"><b style="color:${c.naoAtuar?'var(--text-faint)':'var(--navy)'}">${esc(c.check2||'COBRAR')}</b></td>
       <td>${fdate(r.vencimento)}</td><td class="r num">${money2(r.valor)}</td>
-      <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:'<span class="pill st-0">Sem atuação</span>'}${av&&r.novo_vencimento?`<br><span class="mat">vence ${fdate(r.novo_vencimento)}</span><br>${vencTag(r.novo_vencimento)}`:''}${r.status!=='Não iniciado'&&r.status!=='Em atuação'?`<br>${stPill(r.status)}`:''}</td>
+      <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>`:c.naoAtuar?'<span class="mat">—</span>':'<span class="pill st-0">Sem atuação</span>'}${av&&r.novo_vencimento?`<br><span class="mat">vence ${fdate(r.novo_vencimento)}</span><br>${vencTag(r.novo_vencimento)}`:''}${r.status!=='Não iniciado'&&r.status!=='Em atuação'?`<br>${stPill(r.status)}`:''}</td>
       <td>${fdate(r.data_agendamento)}</td><td class="wrap-c obs-td">${obsCell(r)}</td><td class="wrap-c">${outrasBases(r.matricula,6)}</td></tr>`; }).join('')}
   </tbody></table></div><p class="mat" style="margin-top:8px">${rows.length} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}</p>`;
 }
@@ -2537,7 +2538,7 @@ function cargasHTML(){
     <div class="card"><h3>Ação de Cobrança</h3><p>Planilha da Ação de Cobrança (aba <b>BASE</b>: frustrantes do mês + base de oportunidade). Matrículas novas entram; as que já existem mantêm a atuação; as que saíram da base e nunca foram atuadas são retiradas.</p>
       ${dropBox('upCob','📎 Anexar Ação de Cobrança (.xlsx)','.xlsx,.xls','upCobranca')}
       <p class="mat" style="margin-top:8px">${ultCarga('acao_cobranca')}</p></div>
-    <div class="card"><h3>Base de Cobrança · Out/Nov</h3><p>Planilha com as abas <b>Out</b> e <b>Nov</b> (Matrícula, Cliente, check, Débito, Venc, Ação 1…5). Quem repete em novembro fica só em outubro. O executivo vem da carteira do mês. Nada é retirado; atuações são mantidas.</p>
+    <div class="card"><h3>Base de Cobrança · Out/Nov</h3><p>Planilha com as abas <b>Out</b> e <b>Nov</b> (Matrícula, Cliente, check, Débito, Venc, Ação 1…5). Outubro entra inteira ("Pagou ambas" aparece como não atuar); de Novembro só as sem pagamento. Quem saiu da base e não tem atuação é retirado; atuações nunca se perdem.</p>
       ${dropBox('upBC','📎 Anexar Base de Cobrança (.xlsx)','.xlsx,.xls','upBaseCob')}<p class="mat" style="margin-top:8px">${ultCarga('base_cobranca')}</p></div>
     <div class="card"><h3>Antecipação de Vencimento · final do mês</h3><p>Planilha com <b>Matrícula, Cliente, Carteira, Executivo, Faturamento e Vencimento</b>. Matrículas novas entram; quem já foi atuado é mantido.</p>
       ${dropBox('upAnt','📎 Anexar Antecipação de Vencimento (.xlsx)','.xlsx,.xls','upAntecipacao')}<p class="mat" style="margin-top:8px">${ultCarga('antecipacao')}</p></div>
@@ -2797,22 +2798,28 @@ async function upBaseCob(file){
       const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null}); const head=(aoa[0]||[]).map(c=>c==null?'':String(c));
       const c=k=>colIdx(head,k), im=c(A_MAT), ic=c(['cliente']), ich=head.findIndex(h=>norm(h)==='check'), idb=c(['debito']), iv=c(['venc','vencimento']), icar=head.findIndex(h=>norm(h)==='carteira'), idir=c(['diretoria']);
       const acoes=head.map((h,i)=>[norm(h),i]).filter(([h])=>/^acao\d$/.test(h)).map(([h,i])=>[i,head.findIndex(x=>norm(x)==='dataacao'+h.slice(-1))]);
+      const icn=head.findIndex(h=>norm(h)==='datacreditonov'), ian=head.findIndex(h=>norm(h)==='arrecnov');
       for(const r of aoa.slice(1)){ const m=toMat(r[im]); if(!m||out.has(m)) continue;   // repetidas: fica a primeira (outubro)
+        if(ref==='Novembro' && ((icn>=0&&r[icn])||(ian>=0&&r[ian]))) continue;            // novembro: só as em branco (sem pagamento)
         let check2=null,data2=null; for(const [ia,id] of acoes){ if(r[ia]!=null&&String(r[ia]).trim()){ check2=String(r[ia]).trim(); data2=id>=0?toISO(r[id]):null; } }
         const e=exist[m];
         out.set(m,{acao_id:6,matricula:m,cliente:r[ic]!=null?String(r[ic]).trim():null,carteira:icar>=0&&r[icar]!=null?String(r[icar]).trim():null,regiao:idir>=0?r[idir]:null,
           valor:+r[idb]||null,vencimento:toISO(r[iv]),base_origem:ref,executivo:e?.executivo||null,
-          dados_origem:{cob6:{check:ich>=0&&r[ich]?String(r[ich]).trim():(ref==='Novembro'?'Não pagou novembro':null),check2:null}},
+          dados_origem:{cob6:{check:ich>=0&&r[ich]?String(r[ich]).trim():(ref==='Novembro'?'Não pagou novembro':null),check2:(ich>=0&&norm(r[ich]).includes('pagouambas'))?'NÃO ATUAR':null}},
           status:e?e.status:'Não iniciado',status_origem:e?e.status_origem:'base'});
         if(!e?.executivo) precisaEx.push(m); }
     }
     const execCart={}; for(let i=0;i<precisaEx.length;i+=200){ const {data}=await sb.from('carteira_base').select('matricula,executivo').in('matricula',precisaEx.slice(i,i+200)); (data||[]).forEach(x=>execCart[x.matricula]=x.executivo); }
     const novos=[...out.values()].map(r=>({...r,executivo:r.executivo||execCart[r.matricula]||null}));
     const semEx=novos.filter(r=>!r.executivo).length, qtdNovas=novos.filter(n=>!exist[n.matricula]).length;
-    if(!confirm(`Base de Cobrança: ${int(novos.length)} matrículas (${int(qtdNovas)} novas) · Outubro ${novos.filter(r=>r.base_origem==='Outubro').length} · Novembro ${novos.filter(r=>r.base_origem==='Novembro').length}.\n${semEx?`${semEx} sem executivo na carteira do mês.\n`:''}Nada é retirado e as atuações já feitas continuam.\n\nContinuar?`)) return;
+    const temAt=a=>a.status_atuacao||a.observacao||a.data_agendamento||a.novo_vencimento||!['Não iniciado','Em atuação',null,undefined].includes(a.status);
+    const fora=Object.values(exist).filter(a=>!out.has(a.matricula)), remover=fora.filter(a=>!temAt(a)), mantidas=fora.filter(temAt);
+    if(!confirm(`Base de Cobrança: ${int(novos.length)} matrículas (${int(qtdNovas)} novas) · Outubro ${novos.filter(r=>r.base_origem==='Outubro').length} · Novembro ${novos.filter(r=>r.base_origem==='Novembro').length}.\n${semEx?`${semEx} sem executivo na carteira do mês.\n`:''}${remover.length} saíram da base e não têm atuação: serão retiradas.\n${mantidas.length} saíram da base mas têm atuação: continuam.\nAs atuações já feitas não se perdem.\n\nContinuar?`)) return;
     prog('Gravando Base de Cobrança…',0);
     await sb.from('acoes').upsert({id:6,nome:'Base de Cobrança · Out/Nov',inicio:new Date().toISOString().slice(0,10)},{onConflict:'id',ignoreDuplicates:true});
     for(let i=0;i<novos.length;i+=300){ const {error}=await sb.from('acao_base').upsert(novos.slice(i,i+300),{onConflict:'acao_id,matricula'}); if(error) throw error; prog('Gravando…',Math.min(i+300,novos.length)/novos.length); }
+    for(let i=0;i<remover.length;i+=200){ const {error}=await sb.from('acao_base').delete().eq('acao_id',6).in('matricula',remover.slice(i,i+200).map(r=>r.matricula)); if(error) throw error; }
+    for(const a of mantidas){ const d={...(a.dados_origem||{})}; d.cob6={...(d.cob6||{}),fora_base:true}; await sb.from('acao_base').update({dados_origem:d}).eq('acao_id',6).eq('matricula',a.matricula); }
     await sb.from('cargas').insert({tipo:'base_cobranca',competencia:nowComp(),arquivo:file.name,linhas:novos.length,detalhe:{novas:qtdNovas,sem_executivo:semEx}});
     upMsg(`<div class="msg ok">Base de Cobrança atualizada · ${int(novos.length)} matrículas (${int(qtdNovas)} novas).${semEx?` ${semEx} sem executivo.`:''}</div>`);
     await Promise.all([reload('acao'),reload('cargas'),reload('acoes')]); render();
