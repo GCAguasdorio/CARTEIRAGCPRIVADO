@@ -592,6 +592,7 @@ async function loadAll(){
   idxSaldo();
   try{ const {data}=await sb.from('acoes').select('*'); S.acoes=data||[]; }catch(_){ S.acoes=[]; }
   try{ const co=await fetchAll(()=>sb.from('carteira_obs').select('*').order('matricula')); S.cobs=Object.fromEntries(co.map(x=>[x.matricula,x])); }catch(_){ S.cobs={}; }
+  await loadCedoc();
   if(typeof carregaPerfilCart==='function') await carregaPerfilCart();
   try{ const fx=await fetchAll(()=>sb.from('fotos_executivos').select('executivo,foto')); S.fotos=Object.fromEntries(fx.map(f=>[f.executivo,f.foto])); }catch(_){ S.fotos={}; }
   S.loaded=true;
@@ -617,7 +618,7 @@ function execList(){
    ===================================================================== */
 function tabsDef(){
   const pendR=S.recup.filter(r=>r.status==='Pendente').length, pendJ=S.just.filter(j=>j.status==='Pendente').length;
-  const t=[['acao','Plano de Atuação'],['carteira','Carteira'],['recup','Recuperação de Cortados'],['cadpes','Cadastral & Pesquisa'],['plr','Metas PLR']];
+  const t=[['acao','Plano de Atuação'],['carteira','Carteira'],['recup','Recuperação de Cortados'],['cedoc','CEDOC',(S.gestao&&!execFoco())?0:cedPend()],['cadpes','Cadastral & Pesquisa'],['plr','Metas PLR']];
   if(S.gestao){ t.splice(1,0,['gerencial','Visão Gerencial'],['sla','SLAs'],['ctl','Controle de atuação']); t.push(['aprov','Aprovações', pendR+(S.validaPlr?pendJ:0)],['gestao','Gestão']); }
   return t;
 }
@@ -628,6 +629,7 @@ const ICONS={
   sla:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>',
   acao:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   carteira:'<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12.5" y="8" width="3" height="10"/><rect x="18" y="5" width="3" height="13"/>',
+  cedoc:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
   recup:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 3"/>',
   cadpes:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
   plr:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
@@ -647,7 +649,7 @@ function render(){
   $('nav').innerHTML = tabsDef().map(([k,l,b])=>`<button class="${S.tab===k?'on':''}" onclick="go('${k}')">${ico(k)}${l}${b?`<span class="badge">${b}</span>`:''}</button>`).join('')
     + `<button class="sair" onclick="logout()">${ico('sair')}Sair</button>`;
   renderHero();
-  const v={ctl:viewCtl,sla:viewSla,gerencial:viewGerencial,acao:viewAcao,carteira:viewCarteira,recup:viewRecup,cadpes:viewCadPes,plr:viewPlr,aprov:viewAprov,gestao:viewGestao}[S.tab];
+  const v={ctl:viewCtl,sla:viewSla,gerencial:viewGerencial,acao:viewAcao,carteira:viewCarteira,recup:viewRecup,cedoc:viewCedoc,cadpes:viewCadPes,plr:viewPlr,aprov:viewAprov,gestao:viewGestao}[S.tab];
   $('main').innerHTML = v();
   ({ctl:afterCtl,sla:afterSla,gerencial:afterGerencial,carteira:afterCarteira,cadpes:afterCadPes,acao:afterAcao,plr:afterPlr}[S.tab]||(()=>{}))();
 }
@@ -1466,6 +1468,7 @@ function lupaUniverso(){
   const u=new Map(), add=(m,c,e)=>{ if(!m) return; const k=+m; const x=u.get(k)||{m:k,c:null,e:null}; x.c=x.c||c||null; x.e=x.e||e||null; u.set(k,x); };
   S.acao.forEach(a=>add(a.matricula,a.cliente,a.executivo));
   S.recup.forEach(r=>add(r.matricula,r.cliente,r.executivo));
+  (S.cedoc||[]).forEach(r=>add(r.matricula,r.cliente,r.executivo));
   (S.saldo||[]).forEach(r=>add(r.matricula,r.cliente,r.executivo));
   Object.values(S.cart.base||{}).forEach(b=>add(b.matricula,b.cliente,b.executivo));
   return u;
@@ -1498,9 +1501,10 @@ async function lupaAbrir(m){
 function lupaDetalhe(m,hist){
   const acs=S.acao.filter(a=>a.matricula===m&&(S.gestao||!oculta(a.acao_id))).sort((a,b)=>a.acao_id-b.acao_id), recs=S.recup.filter(r=>r.matricula===m);
   const sd=saldoMat(m), b=(S.cart.base||{})[m], f=(S.cart.fat||[]).filter(x=>x.matricula===m);
-  const any=acs[0]||recs[0]||sd||b;
+  const ced=(S.cedoc||[]).filter(c=>c.matricula===m);
+  const any=acs[0]||recs[0]||sd||b||ced[0];
   if(!any) return `<div class="msg info" style="margin-top:12px">Matrícula <b>${m}</b> não encontrada${S.gestao?'':' na sua carteira'}.</div>`;
-  const cli=acs[0]?.cliente||recs[0]?.cliente||sd?.cliente||b?.cliente||'', ex=acs[0]?.executivo||b?.executivo||sd?.executivo||recs[0]?.executivo||'';
+  const cli=acs[0]?.cliente||recs[0]?.cliente||sd?.cliente||b?.cliente||ced[0]?.cliente||'', ex=acs[0]?.executivo||b?.executivo||sd?.executivo||recs[0]?.executivo||ced[0]?.executivo||'';
   const det=a=>{ const d=[];
     if(a.acao_id===1){ [['Ação do executivo',a.acao_executivo],['Proposta',a.proposta],['Estágio',a.estagio],['Retorno do cliente',a.retorno_cliente],['Revalidação',a.revalidacao],['Visita realizada',a.visita_realizada],['Data da ação',a.data_acao?fdate(a.data_acao):null]].forEach(([l,v])=>v&&d.push([l,v])); if(a.saldo_vencido!=null) d.push(['Saldo vencido',money2(a.saldo_vencido)]); }
     else { d.push(['Status de atuação',a.status_atuacao||'Sem atuação']);
@@ -1523,6 +1527,7 @@ function lupaDetalhe(m,hist){
       <div class="ld">${[['Pagamento',r.tipo_pagamento+(r.parcelas?` (${r.parcelas}x)`:'')],['Saldo integral',money2(r.saldo_integral)],['Saldo c/ desconto',money2(r.saldo_desconto)],['Religação',r.data_religacao?fdate(r.data_religacao):null],['Case de sucesso',r.caso_sucesso?'Sim':null]].filter(x=>x[1]).map(([l,v])=>`<div><span>${l}</span><b>${esc(v)}</b></div>`).join('')}</div>
       ${r.resumo?`<p class="lo">${esc(r.resumo)}</p>`:''}${r.motivo_rejeicao?`<p class="lo">Motivo da rejeição: ${esc(r.motivo_rejeicao)}</p>`:''}
       <div class="lf"><span class="mat">Solicitada em ${fdt(r.criado_em)}${r.decidido_em?' · decidida em '+fdt(r.decidido_em):''}</span></div></div>`).join('')}
+    ${cedLupa(m)}
     ${!acs.length&&!recs.length?`<div class="lupa-ac"><div class="lt"><span>Plano de atuação</span><span class="pill st-0">Fora do plano</span></div><p class="lo">Esta matrícula não está em nenhuma ação do plano de atuação.</p></div>`:''}
   </div>
   ${(sd||f.length)?`<div class="lupa-mini">${f.map(x=>`<span>Faturamento ${compLbl(S.cart.comp)}: venc. ${fdate(x.vencimento)} · ${money2(x.faturamento)} · <b>${esc(x.status==='Pagou'?'Pago':x.status)}</b></span>`).join('')}${sd?`<span>Saldo de contas: <b>${money2(sd.saldo_vencido)}</b>${sd.faixa?' · '+esc(sd.faixa):''}</span>`:''}</div>`:''}
@@ -2402,7 +2407,7 @@ async function afterGerencial(){
    CONTROLE DE ATUAÇÃO (gestão) · atuações dos executivos por dia / semana / mês
    ===================================================================== */
 S.ctl={per:'dia',de:'',ate:'',dados:null,t:0,acoes:[],ex:''};
-const NOME_ACAO_CTL={1:'Ação 1',2:'Ação de Cobrança',3:'Lacuna de Vencimento',4:'Projeção de Leitura',5:'Antecipação de Vencimento',6:'Base de Cobrança',rec:'Recuperação de Cortados',obs:'Obs. de controle (Carteira)'};
+const NOME_ACAO_CTL={1:'Ação 1',2:'Ação de Cobrança',3:'Lacuna de Vencimento',4:'Projeção de Leitura',5:'Antecipação de Vencimento',6:'Base de Cobrança',rec:'Recuperação de Cortados',ced:'CEDOC',obs:'Obs. de controle (Carteira)'};
 function viewCtl(){
   if(!S.gestao) return '<div class="card empty"><b>Só a gestão vê o controle de atuação</b></div>';
   const P=[['dia','Diário'],['sem','Semanal'],['mes','Mensal']];
@@ -2422,7 +2427,8 @@ async function afterCtl(){
         fetchAll(()=>sb.from('acao_historico').select('acao_id,matricula,campo,de,para,origem,por,em').not('por','is',null).neq('por','plataforma').order('em')),
         fetchAll(()=>sb.from('recuperacoes').select('*').order('criado_em')),
         fetchAll(()=>sb.from('carteira_obs').select('*').order('atualizado_em'))]);
-      S.ctl.dados=ctlMonta(h,rc,co); S.ctl.t=Date.now();
+      let ch=[]; try{ ch=await fetchAll(()=>sb.from('cedoc_historico').select('*').order('em')); }catch(_){}
+      S.ctl.dados=ctlMonta(h,rc,co,ch); S.ctl.t=Date.now();
     }
     if(S.tab==='ctl'&&$('ctlBox')) $('ctlBox').innerHTML=ctlHTML();
   }catch(e){ $('ctlBox')&&($('ctlBox').innerHTML=`<div class="msg err">${esc(e.message||e)}</div>`); }
@@ -2436,7 +2442,7 @@ function nomeDeEmail(em,fallback){
   const hit=nomes.find(n=>partes.every(p=>norm(n).includes(p)));
   return hit||fallback||e.split('@')[0];
 }
-function ctlMonta(hist,recs,cobs){
+function ctlMonta(hist,recs,cobs,ced=[]){
   // cada "salvar" gera várias linhas no histórico (uma por campo): junta em uma atuação
   const g=new Map();
   for(const h of hist){ const k=`${h.acao_id}|${h.matricula}|${h.por||''}|${String(h.em).slice(0,19)}`; let a=g.get(k);
@@ -2445,6 +2451,7 @@ function ctlMonta(hist,recs,cobs){
   const L=[...g.values()];
   for(const r of recs) L.push({tipo:'rec',matricula:r.matricula,cliente:r.cliente||'',dono:r.executivo||'',por:nomeDeEmail(r.solicitante_email,r.executivo),email:r.solicitante_email,em:new Date(r.criado_em),campos:[`Pagamento: ${r.tipo_pagamento||''}`,`Saldo c/ desconto: ${money2(r.saldo_desconto)}`],status:'Solicitada · '+(r.status||''),obs:r.resumo||null});
   for(const o of cobs) L.push({tipo:'obs',matricula:o.matricula,cliente:(S.cart.base||{})[o.matricula]?.cliente||saldoMat(o.matricula)?.cliente||'',dono:o.executivo||'',por:nomeDeEmail(o.atualizado_por,o.executivo),email:o.atualizado_por,em:new Date(o.atualizado_em),campos:[],status:'Observação de controle',obs:o.observacao});
+  for(const c of ced){ const cs=(S.cedoc||[]).find(x=>x.id===c.cedoc_id)||{}; L.push({tipo:'ced',matricula:c.matricula,cliente:cs.cliente||'',dono:c.executivo||'',por:nomeDeEmail(c.por,c.executivo),email:c.por,em:new Date(c.em),campos:[`Contato: ${fdate(c.data_contato)}`,`Resolvido: ${c.resolvido||'—'}${c.data_resolucao?' em '+fdate(c.data_resolucao):''}`],status:c.status,obs:c.resposta_cliente||null}); }
   // só executivos (tira a gestão) e respeita "Ver como"
   const gest=new Set((S.usuarios||[]).filter(u=>u.papel==='gestao').map(u=>(u.email||'').toLowerCase()));
   return L.filter(a=>!gest.has((a.email||'').toLowerCase())).sort((a,b)=>a.em-b.em);
@@ -2511,6 +2518,263 @@ function exportCtl(){
   }
   const ws=XLSX.utils.json_to_sheet(det); col(ws,[11,6,16,8,24,24,24,12,40,26,60,60]); XLSX.utils.book_append_sheet(wb,ws,'Atuações (detalhe)');
   XLSX.writeFile(wb,`Controle_de_atuacao_${new Date().toISOString().slice(0,10)}.xlsx`); toast(`${L.length} atuações exportadas`);
+}
+</script>
+<script>
+/* =====================================================================
+   CEDOC · PRTs do SESuite
+   - gestão cadastra o caso (matrícula, PRT, resumo) e anexa o PDF no
+     depósito privado "cedoc" do Supabase Storage (fora do banco)
+   - executivo vê só os casos dele, abre o PDF (link temporário) e
+     preenche o histórico: contato, resolvido, data, resposta ao cliente
+   - ao encerrar o caso, o PDF é apagado do depósito
+   ===================================================================== */
+const CED_ST = {'Sem contato':4,'Em tratamento':5,'Resolvido':3,'Encerrado':0};
+const cedPill = s => `<span class="pill st-${CED_ST[s]??0}">${esc(s||'—')}</span>`;
+const CED_BUCKET = 'cedoc';
+const hojeISO = () => new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const mb = b => b==null?'—':(b/1048576).toLocaleString('pt-BR',{maximumFractionDigits:1})+' MB';
+
+/* ---------- prazo: N dias úteis; do dia "pausa" até o fim do mês o prazo para e volta no dia 1 ---------- */
+S.cedCfg={dias_uteis:5,pausa_dia:20};
+const _fer={};
+function feriados(y){ if(_fer[y]) return _fer[y];
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+        mes=Math.floor((h+l-7*m+114)/31), dia=((h+l-7*m+114)%31)+1, pas=new Date(y,mes-1,dia);
+  const iso=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`, rel=n=>{ const x=new Date(pas); x.setDate(x.getDate()+n); return iso(x); };
+  return _fer[y]=new Set(['01-01','01-20','04-21','04-23','05-01','09-07','10-12','11-02','11-15','11-20','12-25'].map(x=>`${y}-${x}`).concat([rel(-48),rel(-47),rel(-2),rel(60)]));
+}
+const isoD = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const dParse = s => { const [y,m,d]=String(s).slice(0,10).split('-').map(Number); return new Date(y,m-1,d); };
+function diaConta(d){ const w=d.getDay(); return w!==0&&w!==6&&!feriados(d.getFullYear()).has(isoD(d))&&d.getDate()<(+S.cedCfg.pausa_dia||32); }
+function cedPrazo(c){ if(!c.recebido_em) return null; const d=dParse(c.recebido_em); let n=0, g=0;
+  while(n<(+S.cedCfg.dias_uteis||5)&&g++<400){ d.setDate(d.getDate()+1); if(diaConta(d)) n++; } return isoD(d); }
+function cedDU(de,ate){ // dias úteis contáveis entre de (excl.) e ate (incl.)
+  const a=dParse(de), b=dParse(ate); let n=0,g=0; while(a<b&&g++<800){ a.setDate(a.getDate()+1); if(diaConta(a)) n++; } return n; }
+function cedSitPrazo(c){
+  const p=cedPrazo(c); if(!p) return {p:null,k:'—',cls:0,atr:false};
+  const fim=c.resolvido==='Sim'&&c.data_resolucao?c.data_resolucao:(c.status==='Encerrado'?(c.encerrado_em||'').slice(0,10):null);
+  if(fim) return fim<=p?{p,k:'Resolvido no prazo',cls:3,atr:false}:{p,k:`Resolvido fora do prazo (+${cedDU(p,fim)} d.u.)`,cls:4,atr:true};
+  const h=hojeISO(), pausa=dParse(h).getDate()>=(+S.cedCfg.pausa_dia||32);
+  if(h>p) return {p,k:`Atrasado ${cedDU(p,h)||1} d.u.`,cls:4,atr:true};
+  const falta=cedDU(h,p);
+  if(pausa) return {p,k:`Pausado (arrecadação) · faltam ${falta} d.u.`,cls:6,atr:false};
+  if(h===p) return {p,k:'Vence hoje',cls:5,atr:false};
+  return {p,k:`Faltam ${falta} d.u.`,cls:falta<=1?5:1,atr:false};
+}
+const cedPrazoTag = c => { const x=cedSitPrazo(c); return x.p?`<b>${fdate(x.p)}</b><br><span class="pill st-${x.cls}">${esc(x.k)}</span>`:'—'; };
+async function cedCfgSalvar(){
+  const d=+$('cfgDU').value, p=+$('cfgPD').value;
+  if(!(d>=1&&d<=30)) return toast('Dias úteis entre 1 e 30.',true); if(!(p>=2&&p<=31)) return toast('Dia da pausa entre 2 e 31.',true);
+  const {error}=await sb.from('cedoc_config').update({dias_uteis:d,pausa_dia:p,atualizado_em:new Date().toISOString(),atualizado_por:S.me.email}).eq('id',1);
+  if(error) return toast(error.message,true); S.cedCfg={...S.cedCfg,dias_uteis:d,pausa_dia:p}; closeModal(); toast('Regra do prazo atualizada'); render(); }
+function cedCfgForm(){
+  modal(`<div class="modal sm"><div class="mh"><div><h3>Prazo do CEDOC</h3><p>Vale para todos os casos (inclusive os já cadastrados)</p></div><button class="x" onclick="closeModal()">×</button></div>
+  <div class="mb"><div class="fgrid">
+    <div class="fld"><label>Prazo de resolução (dias úteis)</label><input id="cfgDU" type="number" min="1" max="30" value="${S.cedCfg.dias_uteis}"></div>
+    <div class="fld"><label>Pausa a partir do dia</label><input id="cfgPD" type="number" min="2" max="31" value="${S.cedCfg.pausa_dia}"></div>
+    <p class="help full">Do dia da pausa até o fim do mês o prazo fica parado (ação de arrecadação) e volta a contar no dia 1. Não contam sábados, domingos e feriados (nacionais, Tiradentes, São Jorge, São Sebastião, Carnaval, Sexta-feira Santa, Corpus Christi, Consciência Negra). O dia do recebimento não conta.</p>
+  </div></div>
+  <div class="mf"><button class="btn sec" onclick="closeModal()">Cancelar</button><button class="btn" onclick="cedCfgSalvar()">Salvar</button></div></div>`); }
+
+async function loadCedoc(){ try{ const {data}=await sb.from('cedoc_config').select('*').eq('id',1).maybeSingle(); if(data) S.cedCfg=data; }catch(_){} try{ S.cedoc=await fetchAll(()=>sb.from('cedoc').select('*').order('criado_em',{ascending:false})); }catch(_){ S.cedoc=[]; } }
+function cedPend(){ return doExec(S.cedoc||[]).filter(c=>c.status==='Sem contato').length; }
+
+function viewCedoc(){
+  S.ced=S.ced||{f:'abertos',q:''};
+  const T=doExec(S.cedoc||[]), ab=T.filter(c=>c.status!=='Encerrado');
+  const n=s=>T.filter(c=>c.status===s).length, atr=ab.filter(c=>cedSitPrazo(c).atr);
+  const q=norm(S.ced.q), dig=S.ced.q.replace(/\D/g,'');
+  let L = S.ced.f==='abertos'?ab : S.ced.f==='todos'?T : S.ced.f==='atraso'?atr : T.filter(c=>c.status===S.ced.f);
+  if(S.ced.q.trim()) L=L.filter(c=>(dig&&String(c.matricula).includes(dig))||norm(c.cliente).includes(q)||norm(c.prt).includes(q)||norm(c.executivo).includes(q));
+  const usado=(S.cedoc||[]).reduce((s,c)=>s+(c.pdf_path?(+c.pdf_tamanho||0):0),0);
+  const card=(f,cls,l,v,s)=>`<div class="k ${cls} clk ${S.ced.f===f?'on':''}" role="button" tabindex="0" onclick="S.ced.f='${f}';render()"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  const g=S.gestao&&!execFoco();
+  return `
+  <div class="sec-h"><div><h2>CEDOC · PRTs do SESuite</h2><p>${S.gestao?'Cadastre o caso com o PDF do PRT; o executivo responsável registra o contato e a resposta ao cliente':'Abra o PDF do PRT, fale com o cliente e registre o histórico do caso'}</p></div>
+    <div class="acts">${T.length?`<button class="btn sec" onclick="exportCedoc()">Exportar Excel</button>`:''}${S.gestao?`<button class="btn" onclick="cedForm()">+ Novo caso</button>`:''}</div></div>
+  <div class="kpis">
+    ${card('abertos','hero-k','Casos em aberto',int(ab.length),`${int(T.length)} no total`)}
+    ${card('Sem contato','c4','Sem contato',int(n('Sem contato')),'aguardando o executivo')}
+    ${card('Em tratamento','c5','Em tratamento',int(n('Em tratamento')),'contato feito, não resolvido')}
+    ${card('Resolvido','c3','Resolvidos',int(n('Resolvido')),S.gestao?'prontos para encerrar':'aguardando a gestão encerrar')}
+    ${card('atraso','c4','Fora do prazo',int(atr.length),'em aberto e atrasados')}
+    ${card('Encerrado','c1','Encerrados',int(n('Encerrado')),'PDF já apagado')}
+  </div>
+  ${S.gestao?`<p class="mat" style="margin:10px 2px 0">📎 Depósito de PDFs do CEDOC: <b>${mb(usado)}</b> em uso de 1 GB (armazenamento de arquivos, separado dos 500 MB do banco). O PDF é apagado ao encerrar o caso.</p>`:''}
+  <p class="mat" style="margin:6px 2px 0">⏱ Prazo de resolução: <b>${S.cedCfg.dias_uteis} dias úteis</b> a partir do recebimento · do dia <b>${S.cedCfg.pausa_dia}</b> ao fim do mês o prazo fica pausado (ação de arrecadação) e volta a contar no dia 1.${S.gestao?` <a href="#" onclick="cedCfgForm();return false">Alterar regra</a>`:''}</p>
+  <div class="card" style="margin-top:14px">
+    <div class="toolbar" style="margin-top:0">
+      <div class="search">${ICON_SEARCH}<input id="cedQ" placeholder="Buscar matrícula, cliente, PRT${g?' ou executivo':''}" value="${esc(S.ced.q)}" oninput="S.ced.q=this.value;cedTbl()"></div>
+      <div class="chips">${[['abertos','Em aberto'],['todos','Todos']].map(([k,l])=>`<button class="chip ${S.ced.f===k?'on':''}" onclick="S.ced.f='${k}';render()">${l}</button>`).join('')}</div>
+    </div>
+    <div id="cedTbl">${cedTable(L)}</div>
+  </div>`;
+}
+function cedTbl(){ const p=$('cedQ').selectionStart; render(); const i=$('cedQ'); if(i){ i.focus(); i.setSelectionRange(p,p); } }
+
+function cedTable(L){
+  if(!L.length) return `<div class="empty"><b>Nenhum caso ${S.ced.f==='abertos'?'em aberto':'neste filtro'}</b>${S.gestao?'Clique em "+ Novo caso" para cadastrar um PRT.':'Quando a gestão encaminhar um PRT da sua carteira, ele aparece aqui.'}</div>`;
+  const g=S.gestao&&!execFoco();
+  return `<div class="scroll"><table class="fix"><thead><tr><th>Cliente / matrícula</th><th></th>${g?'<th>Executivo</th>':''}<th>PRT</th><th>Recebido</th><th>Prazo</th><th>Resumo do caso</th><th>PDF</th><th>Contato</th><th>Resolvido</th><th>Resolvido em</th><th>Resposta ao cliente</th><th>Status</th>${S.gestao?'<th></th>':''}</tr></thead><tbody>
+  ${L.map(c=>`<tr>
+    <td><span class="cli">${esc(c.cliente||'—')}</span><span class="mat">${c.matricula}</span></td>
+    <td>${c.status==='Encerrado'?`<button class="btn sm sec" onclick="cedVer(${c.id})">Ver</button>`:`<button class="btn sm" onclick="cedHist(${c.id})">Atuar</button>`}</td>
+    ${g?`<td>${pessoa(c.executivo)}</td>`:''}
+    <td><b>${esc(c.prt||'—')}</b></td><td>${fdate(c.recebido_em)}</td><td style="white-space:nowrap">${cedPrazoTag(c)}</td>
+    <td style="min-width:240px;max-width:340px;white-space:normal"><span title="${esc(c.resumo||'')}">${esc((c.resumo||'—').slice(0,140))}${(c.resumo||'').length>140?'…':''}</span></td>
+    <td>${c.pdf_path?`<button class="btn sm sec" onclick="cedPdf(${c.id})">📄 Abrir PDF</button>`:`<span class="mat">${c.pdf_apagado_em?'apagado':'sem PDF'}</span>`}</td>
+    <td>${fdate(c.data_contato)}</td><td>${esc(c.resolvido||'—')}</td><td>${fdate(c.data_resolucao)}</td>
+    <td style="min-width:200px;max-width:300px;white-space:normal">${esc((c.resposta_cliente||'—').slice(0,120))}${(c.resposta_cliente||'').length>120?'…':''}</td>
+    <td>${cedPill(c.status)}</td>
+    ${S.gestao?`<td style="white-space:nowrap"><button class="btn sm sec" onclick="cedForm(${c.id})">Editar</button> ${c.status==='Encerrado'?`<button class="btn sm sec" onclick="cedReabrir(${c.id})">Reabrir</button>`:`<button class="btn sm ${c.status==='Resolvido'?'':'sec'}" onclick="cedEncerrar(${c.id})">Encerrar</button>`}</td>`:''}
+  </tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ---------- PDF ---------- */
+async function cedPdf(id){
+  const c=(S.cedoc||[]).find(x=>x.id===id); if(!c?.pdf_path) return toast('Este caso não tem PDF.',true);
+  const w=window.open('','_blank');
+  const {data,error}=await sb.storage.from(CED_BUCKET).createSignedUrl(c.pdf_path,120);
+  if(error||!data?.signedUrl){ w&&w.close(); return toast('Não foi possível abrir o PDF: '+(error?.message||'arquivo não encontrado'),true); }
+  if(w) w.location=data.signedUrl; else window.location=data.signedUrl;
+}
+
+/* ---------- gestão: cadastrar / editar caso ---------- */
+async function cedForm(id){
+  if(!S.cart.base){ try{ const b=await fetchAll(()=>sb.from('carteira_base').select('matricula,cliente,executivo,utilizacao,sit_ligacao').order('matricula')); S.cart.base=Object.fromEntries(b.map(r=>[r.matricula,r])); }catch(_){ S.cart.base={}; } }
+  const ed=id?(S.cedoc||[]).find(c=>c.id===id):null, M=matOptions();
+  $('dlMat').innerHTML=[...M.entries()].map(([k,v])=>`<option value="${k}">${esc(v.c||'')}</option>`).join('');
+  modal(`<div class="modal"><div class="mh"><div><h3>${ed?'Editar caso':'Novo caso'} · CEDOC</h3><p>PRT do SESuite encaminhado ao executivo da matrícula</p></div><button class="x" onclick="closeModal()">×</button></div>
+  <div class="mb"><div class="fgrid">
+    <div class="fld"><label>Matrícula</label><input id="c_mat" list="dlMat" value="${ed?ed.matricula:''}" placeholder="Digite a matrícula ou o nome" oninput="cedFill()" autocomplete="off"></div>
+    <div class="fld"><label>Nº do PRT</label><input id="c_prt" value="${esc(ed?.prt||'')}" placeholder="Ex.: PRT-2026-012345"></div>
+    <div class="fld full"><label>Cliente</label><input id="c_cli" value="${esc(ed?.cliente||'')}"></div>
+    <div class="fld"><label>Executivo responsável</label><select id="c_exe"><option value="">— escolha —</option>${execList().map(e=>`<option ${ed?.executivo===e?'selected':''}>${esc(e)}</option>`).join('')}</select></div>
+    <div class="fld"><label>Recebido em</label><input id="c_rec" type="date" value="${ed?.recebido_em||hojeISO()}"></div>
+    <div class="fld full"><label>Resumo do caso</label><textarea id="c_res" rows="4" placeholder="O que o cliente reclamou / pediu no PRT…">${esc(ed?.resumo||'')}</textarea></div>
+    <div class="fld full"><label>PDF do PRT ${ed?.pdf_path?`<span class="mat">· atual: ${esc(ed.pdf_nome||'PDF')} (${mb(ed.pdf_tamanho)}) — escolha outro só se quiser substituir</span>`:''}</label>
+      <label class="drop" for="c_pdf" id="c_drop">📎 Clique para escolher o PDF (até 10 MB)</label><input id="c_pdf" type="file" accept="application/pdf,.pdf" class="hidden" onchange="cedPdfSel(this)"></div>
+    <div id="c_msg" class="full"></div>
+  </div></div>
+  <div class="mf">${ed?`<button class="btn bad" style="margin-right:auto" onclick="cedExcluir(${ed.id})">Excluir caso</button>`:''}<button class="btn sec" onclick="closeModal()">Cancelar</button><button class="btn" id="c_save" onclick="cedSalvar(${ed?ed.id:'null'})">${ed?'Salvar':'Cadastrar e encaminhar'}</button></div></div>`);
+}
+function cedFill(){ const m=parseMat($('c_mat').value), o=m&&matOptions().get(m);
+  if(o){ $('c_cli').value=o.c||''; if(o.e){ const s=$('c_exe'); if(![...s.options].some(x=>x.value===o.e)) s.add(new Option(o.e,o.e)); s.value=o.e; } } }
+function cedPdfSel(i){ const f=i.files[0]; if(!f) return;
+  if(!/\.pdf$/i.test(f.name)&&f.type!=='application/pdf'){ i.value=''; return toast('Escolha um arquivo PDF.',true); }
+  if(f.size>10485760){ i.value=''; return toast('O PDF passa de 10 MB.',true); }
+  $('c_drop').textContent=`📄 ${f.name} · ${mb(f.size)}`; }
+const cedSlug = s => String(s||'prt').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w.-]+/g,'_').slice(-80);
+async function cedSalvar(id){
+  const msg=t=>$('c_msg').innerHTML=`<div class="msg err">${t}</div>`;
+  const m=parseMat($('c_mat').value), f=$('c_pdf').files[0], ed=id?(S.cedoc||[]).find(c=>c.id===id):null;
+  const rec={matricula:m,prt:$('c_prt').value.trim()||null,cliente:$('c_cli').value.trim()||null,executivo:$('c_exe').value||null,recebido_em:$('c_rec').value||null,resumo:$('c_res').value.trim()||null};
+  if(!m) return msg('Informe a matrícula.');
+  if(!rec.executivo) return msg('Escolha o executivo responsável.');
+  if(!rec.resumo) return msg('Escreva o resumo do caso.');
+  if(!f&&!ed?.pdf_path&&!confirm('Cadastrar sem PDF? O executivo não terá o documento para consultar.')) return;
+  $('c_save').disabled=true; $('c_save').textContent='Salvando…';
+  let row=ed;
+  if(id){ const {error}=await sb.from('cedoc').update(rec).eq('id',id); if(error){ $('c_save').disabled=false; $('c_save').textContent='Salvar'; return msg(esc(error.message)); } }
+  else { const {data,error}=await sb.from('cedoc').insert(rec).select().single(); if(error){ $('c_save').disabled=false; $('c_save').textContent='Cadastrar e encaminhar'; return msg(esc(error.message)); } row=data; }
+  if(f){
+    const path=`${m}/${row.id}_${Date.now()}_${cedSlug(f.name)}`;
+    const up=await sb.storage.from(CED_BUCKET).upload(path,f,{contentType:'application/pdf',upsert:false});
+    if(up.error){ $('c_save').disabled=false; $('c_save').textContent='Salvar'; await reloadCed(); return msg('O caso foi salvo, mas o PDF não subiu: '+esc(up.error.message)+'. Tente anexar de novo em "Editar".'); }
+    const old=row.pdf_path;
+    await sb.from('cedoc').update({pdf_path:path,pdf_nome:f.name,pdf_tamanho:f.size,pdf_apagado_em:null}).eq('id',row.id);
+    if(old) await sb.storage.from(CED_BUCKET).remove([old]);
+  }
+  closeModal(); toast(id?'Caso atualizado':'Caso cadastrado e encaminhado ao executivo'); await reloadCed();
+}
+async function reloadCed(){ await loadCedoc(); render(); }
+async function cedExcluir(id){
+  const c=(S.cedoc||[]).find(x=>x.id===id); if(!confirm('Excluir este caso do CEDOC e apagar o PDF? Isso não pode ser desfeito.')) return;
+  if(c?.pdf_path){ const r=await sb.storage.from(CED_BUCKET).remove([c.pdf_path]); if(r.error) return toast('Não consegui apagar o PDF: '+r.error.message,true); }
+  const {error}=await sb.from('cedoc').delete().eq('id',id); if(error) return toast(error.message,true);
+  closeModal(); toast('Caso excluído'); await reloadCed();
+}
+async function cedEncerrar(id){
+  const c=(S.cedoc||[]).find(x=>x.id===id); if(!c) return;
+  const aviso = c.status!=='Resolvido' ? `Atenção: o executivo ainda não marcou este caso como resolvido (status: ${c.status}).\n\n` : '';
+  if(!confirm(`${aviso}Encerrar o caso da matrícula ${c.matricula}${c.pdf_path?' e APAGAR o PDF do depósito':''}?\nO histórico do caso continua guardado.`)) return;
+  if(c.pdf_path){ const r=await sb.storage.from(CED_BUCKET).remove([c.pdf_path]); if(r.error) return toast('Não consegui apagar o PDF: '+r.error.message,true); }
+  const {error}=await sb.from('cedoc').update({encerrado_em:new Date().toISOString(),encerrado_por:S.me.nome||S.me.email,pdf_path:null,pdf_apagado_em:c.pdf_path?new Date().toISOString():c.pdf_apagado_em}).eq('id',id);
+  if(error) return toast(error.message,true);
+  toast(c.pdf_path?'Caso encerrado e PDF apagado':'Caso encerrado'); await reloadCed();
+}
+async function cedReabrir(id){
+  if(!confirm('Reabrir este caso? (O PDF apagado não volta: anexe de novo em "Editar" se precisar.)')) return;
+  const {error}=await sb.from('cedoc').update({encerrado_em:null,encerrado_por:null}).eq('id',id); if(error) return toast(error.message,true);
+  toast('Caso reaberto'); await reloadCed();
+}
+
+/* ---------- executivo: histórico do caso ---------- */
+async function cedHistLista(id){ try{ const {data}=await sb.from('cedoc_historico').select('*').eq('cedoc_id',id).order('em',{ascending:false}); return data||[]; }catch(_){ return []; } }
+function cedHistHTML(h){ return h.length?`<div class="hist">${h.map(x=>`<div><b>${esc(x.status||'')}</b> · contato ${fdate(x.data_contato)} · resolvido: ${esc(x.resolvido||'—')}${x.data_resolucao?' em '+fdate(x.data_resolucao):''}${x.resposta_cliente?`<br>${esc(x.resposta_cliente)}`:''}<br><span>${fdt(x.em)} · ${esc(x.por||'')}</span></div>`).join('')}</div>`:'<span class="mat">Nenhum registro ainda.</span>'; }
+function cedCab(c){ return `<div class="lupa-mini" style="flex-direction:column;align-items:flex-start;gap:6px;margin-top:0">
+    <span><b>${esc(c.cliente||'')}</b> · matrícula ${c.matricula}${c.prt?' · PRT <b>'+esc(c.prt)+'</b>':''} · recebido em ${fdate(c.recebido_em)} · prazo <b>${fdate(cedPrazo(c))}</b> (${esc(cedSitPrazo(c).k)})${S.gestao?' · '+esc(c.executivo||''):''}</span>
+    <span style="white-space:pre-wrap">${esc(c.resumo||'')}</span>
+    ${c.pdf_path?`<button class="btn sm sec" onclick="cedPdf(${c.id})">📄 Abrir PDF do PRT</button>`:`<span class="mat">${c.pdf_apagado_em?'PDF apagado ao encerrar o caso':'Sem PDF anexado'}</span>`}</div>`; }
+async function cedHist(id){
+  const c=(S.cedoc||[]).find(x=>x.id===id); if(!c) return;
+  modal(`<div class="modal"><div class="mh"><div><h3>Histórico do caso · CEDOC</h3><p>Registre o contato com o cliente e a resposta</p></div><button class="x" onclick="closeModal()">×</button></div>
+  <div class="mb">${cedCab(c)}<div class="fgrid" style="margin-top:14px">
+    <div class="fld"><label>Data de contato com o cliente</label><input id="h_ct" type="date" max="${hojeISO()}" value="${c.data_contato||''}"></div>
+    <div class="fld"><label>O problema foi resolvido?</label><div class="radio">
+      <label><input type="radio" name="h_rs" value="Sim" ${c.resolvido==='Sim'?'checked':''} onchange="$('h_drW').classList.remove('hidden')"> Sim</label>
+      <label><input type="radio" name="h_rs" value="Não" ${c.resolvido==='Não'?'checked':''} onchange="$('h_drW').classList.add('hidden')"> Não</label></div></div>
+    <div class="fld ${c.resolvido==='Sim'?'':'hidden'}" id="h_drW"><label>Quando foi resolvido?</label><input id="h_dr" type="date" max="${hojeISO()}" value="${c.data_resolucao||''}"></div>
+    <div class="fld full"><label>Resposta ao cliente</label><textarea id="h_rp" rows="5" placeholder="O que deve ser respondido ao cliente…">${esc(c.resposta_cliente||'')}</textarea></div>
+    <div id="h_msg" class="full"></div></div>
+    <h3 class="lupa-ht">Registros anteriores</h3><div id="h_hist"><div class="loading"><div class="spin"></div></div></div></div>
+  <div class="mf"><button class="btn sec" onclick="closeModal()">Cancelar</button><button class="btn" id="h_save" onclick="cedHistSalvar(${c.id})">Salvar histórico</button></div></div>`);
+  const h=await cedHistLista(id); if($('h_hist')) $('h_hist').innerHTML=cedHistHTML(h);
+}
+async function cedHistSalvar(id){
+  const msg=t=>$('h_msg').innerHTML=`<div class="msg err">${t}</div>`;
+  const rs=document.querySelector('input[name=h_rs]:checked')?.value||null;
+  const u={data_contato:$('h_ct').value||null,resolvido:rs,data_resolucao:rs==='Sim'?($('h_dr').value||null):null,resposta_cliente:$('h_rp').value.trim()||null};
+  if(!u.data_contato) return msg('Informe a data de contato com o cliente.');
+  if(!rs) return msg('Diga se o problema foi resolvido (Sim ou Não).');
+  if(rs==='Sim'&&!u.data_resolucao) return msg('Informe quando foi resolvido.');
+  if(u.data_resolucao&&u.data_resolucao<u.data_contato) return msg('A data da resolução não pode ser antes da data de contato.');
+  if(!u.resposta_cliente) return msg('Escreva a resposta ao cliente.');
+  $('h_save').disabled=true;
+  const {error}=await sb.from('cedoc').update(u).eq('id',id);
+  if(error){ $('h_save').disabled=false; return msg(esc(error.message)); }
+  closeModal(); toast('Histórico salvo'); await reloadCed();
+}
+async function cedVer(id){
+  const c=(S.cedoc||[]).find(x=>x.id===id); if(!c) return;
+  modal(`<div class="modal"><div class="mh"><div><h3>Caso encerrado · CEDOC</h3><p>Encerrado em ${fdt(c.encerrado_em)}${c.encerrado_por?' por '+esc(c.encerrado_por):''}</p></div><button class="x" onclick="closeModal()">×</button></div>
+  <div class="mb">${cedCab(c)}
+    <div class="lupa-mini"><span>Contato: <b>${fdate(c.data_contato)}</b></span><span>Resolvido: <b>${esc(c.resolvido||'—')}</b>${c.data_resolucao?' em '+fdate(c.data_resolucao):''}</span></div>
+    ${c.resposta_cliente?`<p class="lo" style="white-space:pre-wrap">${esc(c.resposta_cliente)}</p>`:''}
+    <h3 class="lupa-ht">Registros</h3><div id="h_hist"><div class="loading"><div class="spin"></div></div></div></div>
+  <div class="mf"><button class="btn sec" onclick="closeModal()">Fechar</button></div></div>`);
+  const h=await cedHistLista(id); if($('h_hist')) $('h_hist').innerHTML=cedHistHTML(h);
+}
+
+/* ---------- exportar ---------- */
+function exportCedoc(){
+  const L=doExec(S.cedoc||[]);
+  const rows=L.map(c=>({'Matrícula':c.matricula,'Cliente':c.cliente,'Executivo':c.executivo,'PRT':c.prt,'Recebido em':fdate(c.recebido_em),'Prazo':fdate(cedPrazo(c)),'Situação do prazo':cedSitPrazo(c).k,'Resumo do caso':c.resumo,
+    'PDF':c.pdf_path?'Anexado':(c.pdf_apagado_em?'Apagado':'Sem PDF'),'Data de contato':c.data_contato?fdate(c.data_contato):'','Problema resolvido':c.resolvido||'',
+    'Resolvido em':c.data_resolucao?fdate(c.data_resolucao):'','Resposta ao cliente':c.resposta_cliente||'','Status':c.status,
+    'Atualizado em':c.atualizado_em?fdt(c.atualizado_em):'','Atualizado por':c.atualizado_por||'','Encerrado em':c.encerrado_em?fdt(c.encerrado_em):''}));
+  const ws=XLSX.utils.json_to_sheet(rows), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'CEDOC');
+  XLSX.writeFile(wb,`cedoc_${execFoco()||'todos'}_${hojeISO()}.xlsx`);
+}
+
+/* ---------- lupa ---------- */
+function cedLupa(m){
+  const L=(S.cedoc||[]).filter(c=>c.matricula===m); if(!L.length) return '';
+  return L.map(c=>`<div class="lupa-ac xbdr"><div class="lt"><span>CEDOC · PRT ${esc(c.prt||'')}</span>${cedPill(c.status)}</div>
+    <div class="ld">${[['Recebido',fdate(c.recebido_em)],['Prazo',fdate(cedPrazo(c))+' · '+cedSitPrazo(c).k],['Contato',c.data_contato?fdate(c.data_contato):null],['Resolvido',c.resolvido?c.resolvido+(c.data_resolucao?' · '+fdate(c.data_resolucao):''):null]].filter(x=>x[1]).map(([l,v])=>`<div><span>${l}</span><b>${esc(v)}</b></div>`).join('')}</div>
+    ${c.resumo?`<p class="lo">${esc(c.resumo)}</p>`:''}${c.resposta_cliente?`<p class="lo">Resposta: ${esc(c.resposta_cliente)}</p>`:''}
+    <div class="lf"><span class="mat">${c.pdf_path?`<a href="#" onclick="cedPdf(${c.id});return false">📄 Abrir PDF</a>`:''}</span>${c.status!=='Encerrado'?`<button class="btn sm" onclick="closeModal();go('cedoc');setTimeout(()=>cedHist(${c.id}),50)">Atuar</button>`:''}</div></div>`).join('');
 }
 </script>
 <script>
