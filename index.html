@@ -829,7 +829,7 @@ function cardsAcoes(){
     ${card(4,'Projeção de Leitura','Ofensores negativos · vão fechar o mês abaixo do orçado · atuação preventiva',a4.length,a4.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a4.length?pct(atu(a4)/a4.length,0):'—'} atuadas${barra(atu(a4),a4.length||1,'var(--leaf)')}</span>`)}
     ${card(5,'Antecipação de Vencimento','Final do mês · o executivo confirma se dá para antecipar o vencimento para '+fdate(dataAlvo(5)).slice(0,5),a5.length,a5.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a5.length?pct(atu(a5)/a5.length,0):'—'} atuadas · ${int(a5.filter(r=>r.fatura_antecipada==='Sim').length)} antecipadas${barra(atu(a5),a5.length||1,'var(--leaf)')}</span>`)}
     ${card(6,'Base de Cobrança','Referências Outubro e Novembro · quem não pagou · mesma atuação da Ação de Cobrança',a6.length,a6.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a6.length?pct(atu(a6)/a6.length,0):'—'} atuadas${barra(atu(a6),a6.length||1,'var(--leaf)')}</span>`)}
-    ${card(7,'Atuação Saldo','Saldo vencido por aging · mesmos status da Base de Cobrança · reflete atuações das outras ações',a7.length,a7.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a7.length?pct(a7.filter(r=>st7(r)!=='Sem atuação').length/a7.length,0):'—'} atuadas${barra(a7.filter(r=>st7(r)!=='Sem atuação').length,a7.length||1,'var(--leaf)')}</span>`)}
+    ${card(7,'Atuação Saldo','Saldo vencido por aging · status de cobrança · reflete as atuações da Ação de Cobrança e da Base de Cobrança',a7.length,a7.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a7.length?pct(a7.filter(r=>st7(r)!=='Sem atuação').length/a7.length,0):'—'} atuadas${barra(a7.filter(r=>st7(r)!=='Sem atuação').length,a7.length||1,'var(--leaf)')}</span>`)}
   </div>`;
 }
 function viewAcao(){
@@ -1224,7 +1224,7 @@ async function openAtuar(aid,mat){
         <div class="fld"><label>Fatura antecipada?</label><select id="a_fa" onchange="$('a_nvW').style.opacity=this.value==='Sim'?1:.45;$('a_nv').disabled=this.value!=='Sim'">${opts(['Sim','Não'],r.fatura_antecipada)}</select></div>
         <div class="fld" id="a_nvW" style="opacity:${r.fatura_antecipada==='Sim'?1:.45}"><label>Novo vencimento ajustado</label><input type="date" id="a_nv" value="${r.novo_vencimento||''}" ${r.fatura_antecipada==='Sim'?'':'disabled'}><span class="help">Preencha quando a fatura for antecipada.</span></div>`
     : cb6 ? `
-        <div class="fld full"><label>Status de atuação</label><select id="a_mot" onchange="$('a_nvW').style.display=this.value==='A VENCER'?'':'none'">${opts([...L_MOTIVOS_COB6,...L_MOTIVOS_COB],r.status_atuacao||(o7&&(o7.acao_id===2||o7.acao_id===6)?o7.status_atuacao:''))}</select>${o7?`<span class="help">↪ Já atuada em <b>${esc(NOME_ACAO_L[o7.acao_id])}</b>: ${esc(txtOutra(o7)||o7.status)} (${fdate(o7.atualizado_em)}). Só salve aqui se houver novidade.</span>`:''}</div>
+        <div class="fld full"><label>Status de atuação</label><select id="a_mot" onchange="$('a_nvW').style.display=this.value==='A VENCER'?'':'none'">${opts(sl7?L_MOTIVOS_COB:[...L_MOTIVOS_COB6,...L_MOTIVOS_COB],r.status_atuacao||(o7?o7.status_atuacao:''))}</select>${o7?`<span class="help">↪ Já atuada em <b>${esc(NOME_ACAO_L[o7.acao_id])}</b>: ${esc(txtOutra(o7)||o7.status)} (${fdate(o7.atualizado_em)}). Só salve aqui se houver novidade.</span>`:''}</div>
         <div class="fld full" id="a_nvW" style="display:${r.status_atuacao==='A VENCER'?'':'none'}"><label>Data de vencimento <span style="color:var(--rose)">*</span></label><input type="date" id="a_nv" value="${r.status_atuacao==='A VENCER'&&r.novo_vencimento||''}"><span class="help">A fatura ainda não venceu: informe quando vence.</span></div>
         <div class="fld"><label>Data de agendamento</label><input type="date" id="a_ag" value="${r.data_agendamento||''}"></div>`
     : cob ? `
@@ -2367,7 +2367,7 @@ function viewGerencial(){
                : id===3 ? `${int(rows.filter(r=>r.fatura_antecipada==='Sim').length)} faturas antecipadas · ${money(rows.filter(r=>r.fatura_antecipada==='Sim').reduce((s,r)=>s+(+r.valor||0),0))}`
                : id===5 ? `${int(rows.filter(r=>r.fatura_antecipada==='Sim').length)} vão antecipar · ${int(rows.filter(r=>r.fatura_antecipada==='Não').length)} não`
                : id===4 ? `${int(rows.filter(r=>proj(r).status==='Faturado').length)} já faturadas`
-               : id===7 ? `${int(rows.filter(r=>outra7(r)).length)} refletidas de outras ações · ${int(rows.filter(r=>s7(r).status_pgto==='Nunca pagou').length)} nunca pagou`
+               : id===7 ? `${int(rows.filter(r=>outra7(r)).length)} refletidas da Cobrança · ${int(rows.filter(r=>s7(r).status_pgto==='Nunca pagou').length)} nunca pagou`
                : `${int(rows.filter(r=>r.sit_ligacao==='Cortada').length)} cortadas`;
     return `<div class="card" style="margin-top:0;cursor:pointer" onclick="S.acaoSel=${id};go('acao')">
       <h2>${nome}</h2><p class="sub">${int(R.n)} matrículas · ${money(R.vt)} ${lbl}${extra?` · ${extra}`:''}</p>
@@ -2796,26 +2796,25 @@ function cedLupa(m){
    AÇÃO 7 · ATUAÇÃO SALDO  +  FÉRIAS E COBERTURA
    ===================================================================== */
 const s7 = r => (r&&r.dados_origem&&r.dados_origem.sal7)||{};
-/* atuação mais recente da matrícula em OUTRA ação (para refletir e não duplicar) */
+/* atuação mais recente da matrícula nas ações de COBRANÇA (para refletir e não duplicar) · vencimento (Lacuna/Antecipação), Ação 1 e Projeção não entram */
+const ACOES_COB7=[2,6];
 let _outIdx=null,_outKey='';
 function idxOutra(){
   const key=S.acao.length+'|'+(S.acaoVer||0)+'|'+(S.gestao?1:0);
   if(_outIdx&&_outKey===key&&_outIdx.__ref===S.acao) return _outIdx;
   const m=new Map();
-  for(const a of S.acao){ if(a.acao_id===7) continue; if(!S.gestao&&oculta(a.acao_id)) continue;
-    const tem = a.acao_id===1 ? a.status!=='Não iniciado' : !!(a.status_atuacao||(a.acao_id===3&&a.fatura_antecipada));
-    if(!tem) continue; const b=m.get(a.matricula);
+  for(const a of S.acao){ if(!ACOES_COB7.includes(a.acao_id)||!a.status_atuacao||a.status_atuacao==='A VENCER') continue; if(!S.gestao&&oculta(a.acao_id)) continue; const b=m.get(a.matricula);
     if(!b||String(a.atualizado_em||'')>String(b.atualizado_em||'')) m.set(a.matricula,a); }
   m.__ref=S.acao; _outKey=key; return _outIdx=m;
 }
 const outra7 = r => r.status_atuacao ? null : idxOutra().get(r.matricula)||null;
 function st7(r){ if(r.status_atuacao) return r.status_atuacao; const o=outra7(r); if(!o) return 'Sem atuação';
-  return (o.acao_id===2||o.acao_id===6)&&o.status_atuacao ? o.status_atuacao : 'Atuado em '+NOME_ACAO[o.acao_id]; }
-const txtOutra = o => o.acao_id===1 ? [o.status,o.acao_executivo].filter(Boolean).join(' · ') : (o.status_atuacao||(o.fatura_antecipada?'Fatura antecipada: '+o.fatura_antecipada:''));
+  return o.status_atuacao; }
+const txtOutra = o => o.status_atuacao||'';
 K_FILTROS[7]={
   com:['Com atuação (própria ou refletida)',r=>st7(r)!=='Sem atuação'], propria:['Atuadas nesta ação',r=>!!r.status_atuacao],
-  refl:['Já atuadas em outra ação',r=>!!outra7(r)], sem:['Sem atuação',r=>st7(r)==='Sem atuação'],
-  agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()], avencer:['A vencer',r=>r.status_atuacao==='A VENCER'],
+  refl:['Já atuadas na Cobrança',r=>!!outra7(r)], sem:['Sem atuação',r=>st7(r)==='Sem atuação'],
+  agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()],
   nunca:['Nunca pagou',r=>s7(r).status_pgto==='Nunca pagou']};
 
 function viewSaldo7(){
@@ -2827,16 +2826,16 @@ function viewSaldo7(){
   const sups=[...new Set(all.map(r=>r.carteira||'-'))].sort(), agings=[...new Set(all.map(r=>r.base_origem).filter(Boolean))].sort((a,b)=>parseInt(a)-parseInt(b));
   const obs=[...new Set(all.map(r=>s7(r).obs).filter(Boolean))].sort();
   const chip=(k,v,l,n)=>`<button class="chip ${fon(k,v)?'on':''}" onclick="setF('${k}','${esc(v)}')">${esc(l)} <span class="n">${int(n)}</span></button>`;
-  return `<div class="msg info" style="margin-top:18px">Saldo vencido por <b>aging</b>. Mesmos status da Base de Cobrança. <b>Se a matrícula já foi atuada em outra ação, a atuação aparece aqui</b> (↪ refletida) e conta como atuada. Não precisa atuar de novo, só se houver novidade.</div>
+  return `<div class="msg info" style="margin-top:18px">Saldo vencido por <b>aging</b>. Status de cobrança (os mesmos da Ação de Cobrança). <b>Se a matrícula já foi atuada na Ação de Cobrança ou na Base de Cobrança, a atuação aparece aqui</b> (↪ refletida) e conta como atuada. Não precisa atuar de novo, só se houver novidade.</div>
   <div class="kpis">
     ${kc('','hero-k',`<div class="l">Matrículas com saldo</div><div class="v">${int(all.length)}</div><div class="s">${money(val(all))} vencido</div>`)}
     ${kc('com','c3',`<div class="l">Com atuação</div><div class="v">${int(com.length)}</div><div class="s">${pct(com.length/all.length,0)} · ${money(val(com))}</div>${barra(com.length,all.length,'var(--leaf)')}`)}
-    ${kc('refl','c1',`<div class="l">↪ Já atuadas em outra ação</div><div class="v">${int(refl.length)}</div><div class="s">${int(prop.length)} atuadas aqui</div>`)}
+    ${kc('refl','c1',`<div class="l">↪ Já atuadas na Cobrança</div><div class="v">${int(refl.length)}</div><div class="s">${int(prop.length)} atuadas aqui</div>`)}
     ${kc('sem','c4',`<div class="l">Sem atuação</div><div class="v">${int(sem.length)}</div><div class="s">${money(val(sem))}</div>`)}
     ${kc('agend','c5',`<div class="l">Pagamento agendado</div><div class="v">${int(agend.length)}</div><div class="s">a partir de hoje · ${money(val(agend))}</div>`)}
     ${kc('nunca','c2',`<div class="l">Nunca pagou</div><div class="v">${int(nunca.length)}</div><div class="s">${money(val(nunca))}</div>`)}
   </div>
-  <div class="card" style="margin-top:18px"><h3>Status de atuação <small>inclui as atuações refletidas de outras ações · clique para filtrar</small></h3>${barrasLaterais(ks.map(k=>{ const x=all.filter(r=>st7(r)===k); return [k,x.length,val(x)]; }),'satu')}</div>
+  <div class="card" style="margin-top:18px"><h3>Status de atuação <small>inclui as atuações refletidas da Cobrança e da Base de Cobrança · clique para filtrar</small></h3>${barrasLaterais(ks.map(k=>{ const x=all.filter(r=>st7(r)===k); return [k,x.length,val(x)]; }),'satu')}</div>
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula ou cliente" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
     <div class="chips"><span class="mat" style="font-weight:700;align-self:center">Sup:</span>${sups.map(v=>chip('cart4',v,v,all.filter(r=>(r.carteira||'-')===v).length)).join('')}</div>
@@ -2865,7 +2864,7 @@ function exportSaldo7(rows){
   return rows.map(r=>{ const o=outra7(r), x=s7(r); return {Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Sup:r.carteira,'Status pagamento':x.status_pgto||'','Obs. da base':x.obs||'',
     'Saldo vencido':+r.valor||0,'Notas vencidas':x.notas||0,'Venc. mais antigo':r.vencimento?fdate(r.vencimento):'',Aging:r.aging,
     'Status de atuação':st7(r),'Atuação de':r.status_atuacao?'Atuação Saldo':o?'Refletida · '+NOME_ACAO_L[o.acao_id]:'',
-    'Vencimento (A VENCER)':r.status_atuacao==='A VENCER'&&r.novo_vencimento?fdate(r.novo_vencimento):'','Data agendamento':(r.data_agendamento||(o&&o.data_agendamento))?fdate(r.data_agendamento||o.data_agendamento):'',
+    'Data agendamento':(r.data_agendamento||(o&&o.data_agendamento))?fdate(r.data_agendamento||o.data_agendamento):'',
     Observação:r.observacao||(o&&o.observacao)||'',Status:r.status,'Atuação em outras ações':outrasBases(r.matricula,7).replace(/<[^>]+>/g,'').replace(/\s+/g,' ').replace(/^—$/,'').trim(),'Atualizado em':r.atualizado_em?fdt(r.atualizado_em):''}; });
 }
 
@@ -2984,7 +2983,7 @@ function cargasHTML(){
       <p class="mat" style="margin-top:8px">${ultCarga('acao_cobranca')}</p></div>
     <div class="card"><h3>Base de Cobrança · Out/Nov</h3><p>Planilha com as abas <b>Out</b> e <b>Nov</b> (Matrícula, Cliente, check, Débito, Venc, Ação 1…5). Outubro entra inteira ("Pagou ambas" aparece como não atuar); de Novembro só as sem pagamento. Quem saiu da base e não tem atuação é retirado; atuações nunca se perdem.</p>
       ${dropBox('upBC','📎 Anexar Base de Cobrança (.xlsx)','.xlsx,.xls','upBaseCob')}<p class="mat" style="margin-top:8px">${ultCarga('base_cobranca')}</p></div>
-    <div class="card"><h3>Atuação Saldo</h3><p>Planilha <b>Saldo - GC</b> (aba <b>Query1</b>: Matrícula, Cliente, Sup, Status Pgto, OBS, SaldoVencidas, MinDATA_VENC, Aging, NotasVencidas, Executivo, Situação). Novas entram; quem saiu e não tem atuação é retirado; atuações nunca se perdem.</p>
+    <div class="card"><h3>Atuação Saldo</h3><p>Planilha <b>Saldo - GC</b> (aba <b>Query1</b>: Matrícula, Cliente, Sup, Status Pgto, OBS, SaldoVencidas, MinDATA_VENC, Aging, NotasVencidas, Executivo, Situação). Novas entram; quem saiu e não tem atuação é retirado; atuações nunca se perdem. Reflete as atuações da Ação de Cobrança e da Base de Cobrança.</p>
       ${dropBox('upS7','📎 Anexar base de Saldo (.xlsx)','.xlsx,.xls','upSaldo7')}<p class="mat" style="margin-top:8px">${ultCarga('atuacao_saldo')}</p></div>
     <div class="card"><h3>Antecipação de Vencimento · final do mês</h3><p>Planilha com <b>Matrícula, Cliente, Carteira, Executivo, Faturamento e Vencimento</b>. Matrículas novas entram; quem já foi atuado é mantido.</p>
       ${dropBox('upAnt','📎 Anexar Antecipação de Vencimento (.xlsx)','.xlsx,.xls','upAntecipacao')}<p class="mat" style="margin-top:8px">${ultCarga('antecipacao')}</p></div>
