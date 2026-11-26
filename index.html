@@ -1310,7 +1310,7 @@ async function openAtuar(aid,mat){
       <div class="fgrid">${campos}
         <div class="fld"><label>Status</label><select id="a_st"><option value="__auto">Automático (pela plataforma) · atual: ${esc(r.status)}</option>${STATUS.map(s=>`<option>${s[0]}</option>`).join('')}</select>
           <span class="help">Deixe em "Automático" para a plataforma definir o status pelas informações preenchidas.</span></div>
-        <div class="fld full"><label>${sl7?(esteiraAtiva()?'Situação · contextualize o caso':'Situação · detalhe a situação da matrícula')+' <span style="color:var(--rose)">*</span>':'Observação'}</label><textarea id="a_obs" rows="3" placeholder="${sl7?'Ex.: Falei com o síndico, ficou de pagar a fatura de outubro até 28/11 por PIX.':''}">${esc(r.observacao||(o7&&!r.observacao?o7.observacao||'':''))}</textarea></div>
+        <div class="fld full"><label>${sl7?(esteiraAtiva()?'Situação · contextualize o caso':'Situação · detalhe a situação da matrícula')+' <span style="color:var(--rose)">*</span>':cob?'Observação <span style="color:var(--rose)">*</span>':'Observação'}</label><textarea id="a_obs" rows="3" placeholder="${sl7?'Ex.: Falei com o síndico, ficou de pagar a fatura de outubro até 28/11 por PIX.':''}">${esc(r.observacao||(o7&&!r.observacao?o7.observacao||'':''))}</textarea></div>
       </div>
       ${rec.length?`<div class="msg info">Recuperação registrada: ${rec.map(x=>`${x.status} em ${fdate(x.criado_em)}`).join(' · ')}</div>`:''}
       <h3 style="font-family:var(--font-display);font-size:14.5px;margin:6px 0 8px">Histórico</h3>
@@ -1351,6 +1351,7 @@ async function saveAtuar(aid,mat){
     return gravarAtuacao(aid,mat,r,upd3);
   }
   if(ACOES_ESTEIRA.includes(aid)){ const x=esteiraLer(aid); if(x.erro){ toast(x.erro,true); $(x.el)&&$(x.el).focus(); return; } return gravarAtuacao(aid,mat,r,x.upd); }
+  if((aid===2||aid===6)&&!(v('a_obs')||'').trim()){ toast('A observação é obrigatória: descreva a atuação.',true); $('a_obs').focus(); return; }
   if(aid===6&&v('a_mot')==='A VENCER'&&!v('a_nv')){ toast('Informe a data de vencimento.',true); $('a_nv').focus(); return; }
   const upd = aid===6 ? {status_atuacao:v('a_mot'),novo_vencimento:v('a_mot')==='A VENCER'?v('a_nv'):null,data_agendamento:v('a_ag'),observacao:v('a_obs')}
     : aid===2 ? {status_atuacao:v('a_mot'),data_agendamento:v('a_ag'),observacao:v('a_obs')}
