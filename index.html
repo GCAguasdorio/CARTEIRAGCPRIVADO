@@ -334,6 +334,32 @@
   .oc-bar{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:14px; padding:10px 14px; border-radius:12px; background:var(--water-soft); font-size:13px; color:var(--navy); }
   .oc-bar.on{ background:var(--rose-soft); }
   tr.row-av td{ background:#F7FAFD; } tr.row-av td:first-child{ background:#F7FAFD; }
+
+/* esteira de atuação (cobrança) */
+.est{background:#f6f9fd;border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.est select,.est input{width:100%}
+.est-h{display:flex;align-items:center;gap:8px;font-weight:700;font-size:12.5px;color:var(--ink);margin:10px 0 6px}
+.est-h:first-child{margin-top:0}
+.est-h span{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--navy,#0b2545);color:#fff;font-size:11px}
+.est .fgrid{gap:10px 14px}
+.ed-pl{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:12px;background:#fbfcfe}
+.ed-off{opacity:.5}
+.ed-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ed-nome{flex:1;min-width:220px;font-weight:700}
+.ed-tb{width:100%;margin:8px 0;border-collapse:collapse}
+.ed-tb th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute);text-align:left;padding:6px 6px}
+.ed-tb td{vertical-align:top;padding:6px;border-top:1px solid var(--line)}
+.ed-tb td input,.ed-tb td select{width:100%}
+.est-chk{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px}
+.est-chk label{display:flex;gap:4px;align-items:center;white-space:nowrap;color:var(--ink2,#334)}
+.ed-campos{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-bottom:12px}
+.ed-cp{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fbfcfe}
+.ed-cp textarea{width:100%;margin-top:8px;font-size:12.5px}
+.ed-pl input:not([type=checkbox]),.ed-pl select,.ed-cp input:not([type=checkbox]),.ed-cp select,.ed-cp textarea{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;font-size:13px;background:#fff!important;color:var(--ink);border-color:#cfd9e6!important;border-style:solid!important;border-width:1px!important}
+.ed-tb details summary{cursor:pointer;font-size:12px;color:var(--blue);font-weight:600}
+.ed-tb details[open] summary{margin-bottom:6px}
+.ed-tb{table-layout:fixed}.ed-tb th:nth-child(1){width:34%}.ed-tb th:nth-child(2){width:20%}.ed-tb th:nth-child(4){width:70px}
+.ed-tb .est-chk{font-size:11.5px}
 </style>
 </head>
 <body>
@@ -599,7 +625,7 @@ async function loadAll(){
   idxSaldo();
   try{ const {data}=await sb.from('acoes').select('*'); S.acoes=data||[]; }catch(_){ S.acoes=[]; }
   try{ const co=await fetchAll(()=>sb.from('carteira_obs').select('*').order('matricula')); S.cobs=Object.fromEntries(co.map(x=>[x.matricula,x])); }catch(_){ S.cobs={}; }
-  await loadCedoc(); await loadFerias();
+  await loadCedoc(); await loadFerias(); await loadCobCfg();
   if(typeof carregaPerfilCart==='function') await carregaPerfilCart();
   try{ const fx=await fetchAll(()=>sb.from('fotos_executivos').select('executivo,foto')); S.fotos=Object.fromEntries(fx.map(f=>[f.executivo,f.foto])); }catch(_){ S.fotos={}; }
   S.loaded=true;
@@ -726,7 +752,7 @@ const acaoDe = id => (!S.gestao&&oculta(id)) ? [] : doAtu(S.acao).filter(r=>r.ac
 const saldoDe = () => doAtu(S.saldo||[]);
 const saldoMat = m => (S.saldoIdx||{})[m];
 function idxSaldo(){ S.saldoIdx=Object.fromEntries((S.saldo||[]).map(s=>[s.matricula,s])); }
-function selAcao(v){ if(!S.gestao&&typeof v==='number'&&oculta(v)) v=ACOES_IDS.find(i=>!oculta(i))||1; S.acaoSel=v; S.f={q:'',origem:'',sit:[],status:[],motivo:'',perfil:[],base:[],fa:[],pa:[],perfil3:[],cart4:[],sp4:[],satu:[],o7:[],k:''}; S.lim7=150; render(); }
+function selAcao(v){ if(!S.gestao&&typeof v==='number'&&oculta(v)) v=ACOES_IDS.find(i=>!oculta(i))||1; S.acaoSel=v; S.f={q:'',origem:'',sit:[],status:[],motivo:'',perfil:[],base:[],fa:[],pa:[],perfil3:[],cart4:[],sp4:[],satu:[],o7:[],pl7:[],k:''}; S.lim7=150; render(); }
 
 /* "Outras bases": atuação da matrícula nas demais bases */
 function outrasBases(m,atual){
@@ -788,11 +814,11 @@ function acaoFiltrada(){
     fin('sit',r.sit_ligacao) && fin('status',r.status) && fin('perfil',r.perfil_pagamento) &&
     (!f.motivo || (f.motivo==='__sem'?!r.status_atuacao:r.status_atuacao===f.motivo)) &&
     fin('base',(r.base_origem||'').trim()) && fin('fa',r.fatura_antecipada||'__sem') &&
-    fin('perfil3',perfilDe(r.matricula,r)||'') && fin('cart4',r.carteira||'-') && fin('pa',r.pode_antecipar||((r.status_atuacao||r.fatura_antecipada)?'__ant':'__sem')) && fin('sp4',(r.acao_id===6?c6(r).check:r.acao_id===7?s7(r).status_pgto:proj(r).status)||'') && fin('satu',r.acao_id===7?st7(r):(r.status_atuacao||'Sem atuação')) && fin('o7',r.acao_id===7?(s7(r).obs||''):'') &&
+    fin('perfil3',perfilDe(r.matricula,r)||'') && fin('cart4',r.carteira||'-') && fin('pa',r.pode_antecipar||((r.status_atuacao||r.fatura_antecipada)?'__ant':'__sem')) && fin('sp4',(r.acao_id===6?c6(r).check:r.acao_id===7?s7(r).status_pgto:proj(r).status)||'') && fin('satu',r.acao_id===7?st7(r):(r.status_atuacao||'Sem atuação')) && fin('o7',r.acao_id===7?(s7(r).obs||''):'') && fin('pl7',r.acao_id===7?plano7(r):'') &&
     (!q || norm(r.matricula).includes(q) || norm(r.cliente).includes(q) || norm(r.bairro).includes(q)))
     .sort((a,b)=>S.acaoSel===4?(+a.valor||0)-(+b.valor||0):S.acaoSel!==1?(+b.valor||0)-(+a.valor||0):0);
 }
-const F_MULTI=['sit','perfil','base','fa','pa','perfil3','status','cart4','sp4','satu','o7'];
+const F_MULTI=['sit','perfil','base','fa','pa','perfil3','status','cart4','sp4','satu','o7','pl7'];
 function fArr(k){ let x=S.f[k]; if(!Array.isArray(x)) x=S.f[k]=(x?[x]:[]); return x; }
 function fon(k,v){ return fArr(k).includes(v); }
 function fin(k,val){ const a=fArr(k); return !a.length||a.includes(val); }
@@ -829,7 +855,7 @@ function cardsAcoes(){
     ${card(4,'Projeção de Leitura','Ofensores negativos · vão fechar o mês abaixo do orçado · atuação preventiva',a4.length,a4.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a4.length?pct(atu(a4)/a4.length,0):'—'} atuadas${barra(atu(a4),a4.length||1,'var(--leaf)')}</span>`)}
     ${card(5,'Antecipação de Vencimento','Final do mês · o executivo confirma se dá para antecipar o vencimento para '+fdate(dataAlvo(5)).slice(0,5),a5.length,a5.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a5.length?pct(atu(a5)/a5.length,0):'—'} atuadas · ${int(a5.filter(r=>r.fatura_antecipada==='Sim').length)} antecipadas${barra(atu(a5),a5.length||1,'var(--leaf)')}</span>`)}
     ${card(6,'Base de Cobrança','Referências Outubro e Novembro · quem não pagou · mesma atuação da Ação de Cobrança',a6.length,a6.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a6.length?pct(atu(a6)/a6.length,0):'—'} atuadas${barra(atu(a6),a6.length||1,'var(--leaf)')}</span>`)}
-    ${card(7,'Atuação Saldo','Saldo vencido por aging · status de cobrança · reflete as atuações da Ação de Cobrança e da Base de Cobrança',a7.length,a7.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a7.length?pct(a7.filter(r=>st7(r)!=='Sem atuação').length/a7.length,0):'—'} atuadas${barra(a7.filter(r=>st7(r)!=='Sem atuação').length,a7.length||1,'var(--leaf)')}</span>`)}
+    ${card(7,'Atuação Saldo','Saldo vencido por aging · preenchimento guiado (plano de ação › tratativa) · atuação própria, independente das outras bases',a7.length,a7.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a7.length?pct(a7.filter(r=>st7(r)!=='Sem atuação').length/a7.length,0):'—'} atuadas${barra(a7.filter(r=>st7(r)!=='Sem atuação').length,a7.length||1,'var(--leaf)')}</span>`)}
   </div>`;
 }
 function viewAcao(){
@@ -901,7 +927,7 @@ function viewCobranca(){
     ${kc('agend','c5',`<div class="l">Pagamento agendado</div><div class="v">${int(agend.length)}</div><div class="s">a partir de hoje · ${money(val(agend))}</div>`)}
   </div>
 
-  <div class="card" style="margin-top:18px"><h3>Status de atuação <small>clique em uma ou mais barras para filtrar a tabela</small></h3>${(()=>{ const sem=all.filter(r=>!r.status_atuacao), ks=[...L_MOTIVOS_COB,...new Set(all.map(r=>r.status_atuacao).filter(x=>x&&!L_MOTIVOS_COB.includes(x)))];
+  <div class="card" style="margin-top:18px"><h3>Status de atuação <small>clique em uma ou mais barras para filtrar a tabela</small></h3>${(()=>{ const sem=all.filter(r=>!r.status_atuacao), LC=L_MOTIVOS_COB, ks=[...LC,...new Set(all.map(r=>r.status_atuacao).filter(x=>x&&!LC.includes(x)))];
     return barrasLaterais([...(sem.length?[['Sem atuação',sem.length,val(sem)]]:[]),...ks.map(k=>{ const x=all.filter(r=>r.status_atuacao===k); return [k,x.length,val(x)]; }).filter(x=>x[1])],'satu'); })()}</div>
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula ou cliente" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
@@ -1173,6 +1199,7 @@ function autoStatus(r){
   }
   if(r.acao_id===2||r.acao_id===6||r.acao_id===7){
     const m=r.status_atuacao||'';
+    if(r.acao_id===7){ const ef=efeitoCob(m,r.plano_acao); if(ef) return ef; if(tratDef(m,r.plano_acao)) return 'Em atuação'; }
     if(/^Pago|parcelamento realizado/i.test(m)) return 'Pagamento identificado';
     if(/Processo Judicial/i.test(m)) return 'Encaminhado jurídico';
     if(/Pagamento agendado/i.test(m)) return 'Acordo aceito';
@@ -1223,13 +1250,14 @@ async function openAtuar(aid,mat){
         <div class="fld full" id="a_osW" style="display:${r.status_atuacao==='ENVIADO AO FATURAMENTO'?'':'none'}"><label>Nº da O.S. de faturamento <span style="color:var(--rose)">*</span></label><input id="a_os" value="${esc(r.os||'')}" placeholder="Ex.: 2026/3035597"><span class="help">Obrigatório quando o status é Enviado ao faturamento.</span></div>
         <div class="fld"><label>Fatura antecipada?</label><select id="a_fa" onchange="$('a_nvW').style.opacity=this.value==='Sim'?1:.45;$('a_nv').disabled=this.value!=='Sim'">${opts(['Sim','Não'],r.fatura_antecipada)}</select></div>
         <div class="fld" id="a_nvW" style="opacity:${r.fatura_antecipada==='Sim'?1:.45}"><label>Novo vencimento ajustado</label><input type="date" id="a_nv" value="${r.novo_vencimento||''}" ${r.fatura_antecipada==='Sim'?'':'disabled'}><span class="help">Preencha quando a fatura for antecipada.</span></div>`
-    : cb6 ? `
-        <div class="fld full"><label>Status de atuação</label><select id="a_mot" onchange="$('a_nvW').style.display=this.value==='A VENCER'?'':'none'">${opts(sl7?L_MOTIVOS_COB:[...L_MOTIVOS_COB6,...L_MOTIVOS_COB],r.status_atuacao||(o7?o7.status_atuacao:''))}</select>${o7?`<span class="help">↪ Já atuada em <b>${esc(NOME_ACAO_L[o7.acao_id])}</b>: ${esc(txtOutra(o7)||o7.status)} (${fdate(o7.atualizado_em)}). Só salve aqui se houver novidade.</span>`:''}</div>
+    : cb6&&!sl7 ? `
+        <div class="fld full"><label>Status de atuação</label><select id="a_mot" onchange="$('a_nvW').style.display=this.value==='A VENCER'?'':'none'">${opts([...L_MOTIVOS_COB6,...L_MOTIVOS_COB],r.status_atuacao)}</select></div>
         <div class="fld full" id="a_nvW" style="display:${r.status_atuacao==='A VENCER'?'':'none'}"><label>Data de vencimento <span style="color:var(--rose)">*</span></label><input type="date" id="a_nv" value="${r.status_atuacao==='A VENCER'&&r.novo_vencimento||''}"><span class="help">A fatura ainda não venceu: informe quando vence.</span></div>
         <div class="fld"><label>Data de agendamento</label><input type="date" id="a_ag" value="${r.data_agendamento||''}"></div>`
-    : cob ? `
+    : cob&&!sl7 ? `
         <div class="fld full"><label>Status de atuação</label><select id="a_mot">${opts(L_MOTIVOS_COB,r.status_atuacao)}</select></div>
         <div class="fld"><label>Data de agendamento</label><input type="date" id="a_ag" value="${r.data_agendamento||''}"></div>`
+    : sl7 ? `${o7?`<div class="full msg info" style="margin:0">↪ Já atuada em <b>${esc(NOME_ACAO_L[o7.acao_id])}</b>: ${esc(txtOutra(o7)||o7.status)} (${fdate(o7.atualizado_em)}). Os campos abaixo vêm preenchidos com essa atuação: só salve aqui se houver novidade.</div>`:''}${esteiraForm(aid,r)}`
     : `
         <div class="fld"><label>Ação do executivo</label><select id="a_acao">${opts(L_ACAO,r.acao_executivo)}</select></div>
         <div class="fld"><label>Proposta</label><select id="a_prop">${opts(L_PROPOSTA,r.proposta)}</select></div>
@@ -1248,7 +1276,7 @@ async function openAtuar(aid,mat){
       <div class="fgrid">${campos}
         <div class="fld"><label>Status</label><select id="a_st"><option value="__auto">Automático (pela plataforma) · atual: ${esc(r.status)}</option>${STATUS.map(s=>`<option>${s[0]}</option>`).join('')}</select>
           <span class="help">Deixe em "Automático" para a plataforma definir o status pelas informações preenchidas.</span></div>
-        <div class="fld full"><label>Observação</label><textarea id="a_obs" rows="3">${esc(r.observacao||'')}</textarea></div>
+        <div class="fld full"><label>${sl7?'Situação · contextualize o caso <span style="color:var(--rose)">*</span>':'Observação'}</label><textarea id="a_obs" rows="3" placeholder="${sl7?'Ex.: Falei com o síndico, ficou de pagar a fatura de outubro até 28/11 por PIX.':''}">${esc(r.observacao||(o7&&!r.observacao?o7.observacao||'':''))}</textarea></div>
       </div>
       ${rec.length?`<div class="msg info">Recuperação registrada: ${rec.map(x=>`${x.status} em ${fdate(x.criado_em)}`).join(' · ')}</div>`:''}
       <h3 style="font-family:var(--font-display);font-size:14.5px;margin:6px 0 8px">Histórico</h3>
@@ -1259,8 +1287,9 @@ async function openAtuar(aid,mat){
       <button class="btn sec" onclick="closeModal()">Cancelar</button>
       <button class="btn" id="a_save" onclick="saveAtuar(${aid},${mat})">Salvar</button>
     </div></div>`);
+  if(sl7) estInit(aid,r,o7&&!r.status_atuacao?{plano_acao:o7.plano_acao,status_atuacao:o7.status_atuacao,atuacao_det:o7.atuacao_det,data_agendamento:o7.data_agendamento}:null);
   const {data}=await sb.from('acao_historico').select('*').eq('acao_id',aid).eq('matricula',mat).order('em',{ascending:false}).limit(60);
-  $('histBox') && ($('histBox').innerHTML = (data&&data.length)?data.map(h=>`<div><b>${esc(h.campo.replace(/_/g,' '))}</b>: ${esc(h.de||'—')} → <b>${esc(h.para||'—')}</b><br><span>${fdt(h.em)} · ${esc(h.por)}${h.origem==='plataforma'?' (automático)':''}</span></div>`).join(''):'<span class="mat">Sem alterações desde o início da plataforma — status vindo da base atual.</span>');
+  $('histBox') && ($('histBox').innerHTML = (data&&data.length)?data.map(h=>`<div><b>${esc(HIST_ROT[h.campo]||h.campo.replace(/_/g,' '))}</b>: ${esc(histVal(h.campo,h.de))} → <b>${esc(histVal(h.campo,h.para))}</b><br><span>${fdt(h.em)} · ${esc(h.por)}${h.origem==='plataforma'?' (automático)':''}</span></div>`).join(''):'<span class="mat">Sem alterações desde o início da plataforma — status vindo da base atual.</span>');
 }
 async function saveAtuar(aid,mat){
   const r=S.acao.find(x=>x.acao_id===aid&&x.matricula===mat);
@@ -1287,9 +1316,10 @@ async function saveAtuar(aid,mat){
     if(upd3.fatura_antecipada==='Sim'){ upd3.novo_vencimento=$('a_nv').value||null; if(!upd3.novo_vencimento){ toast('Informe a data do novo vencimento ajustado.',true); return; } }
     return gravarAtuacao(aid,mat,r,upd3);
   }
-  if((aid===6||aid===7)&&v('a_mot')==='A VENCER'&&!v('a_nv')){ toast('Informe a data de vencimento.',true); $('a_nv').focus(); return; }
-  const upd = (aid===6||aid===7) ? {status_atuacao:v('a_mot'),novo_vencimento:v('a_mot')==='A VENCER'?v('a_nv'):null,data_agendamento:v('a_ag'),observacao:v('a_obs')}
-    : (aid===2) ? {status_atuacao:v('a_mot'),data_agendamento:v('a_ag'),observacao:v('a_obs')}
+  if(ACOES_ESTEIRA.includes(aid)){ const x=esteiraLer(aid); if(x.erro){ toast(x.erro,true); $(x.el)&&$(x.el).focus(); return; } return gravarAtuacao(aid,mat,r,x.upd); }
+  if(aid===6&&v('a_mot')==='A VENCER'&&!v('a_nv')){ toast('Informe a data de vencimento.',true); $('a_nv').focus(); return; }
+  const upd = aid===6 ? {status_atuacao:v('a_mot'),novo_vencimento:v('a_mot')==='A VENCER'?v('a_nv'):null,data_agendamento:v('a_ag'),observacao:v('a_obs')}
+    : aid===2 ? {status_atuacao:v('a_mot'),data_agendamento:v('a_ag'),observacao:v('a_obs')}
     : {acao_executivo:v('a_acao'),proposta:v('a_prop'),estagio:v('a_est'),retorno_cliente:v('a_ret'),
        data_envio:v('a_env'),prazo_retorno:v('a_pra'),revalidacao:v('a_rev'),visita_realizada:v('a_vis'),data_acao:v('a_dac'),observacao:v('a_obs')};
   return gravarAtuacao(aid,mat,r,upd);
@@ -2367,7 +2397,7 @@ function viewGerencial(){
                : id===3 ? `${int(rows.filter(r=>r.fatura_antecipada==='Sim').length)} faturas antecipadas · ${money(rows.filter(r=>r.fatura_antecipada==='Sim').reduce((s,r)=>s+(+r.valor||0),0))}`
                : id===5 ? `${int(rows.filter(r=>r.fatura_antecipada==='Sim').length)} vão antecipar · ${int(rows.filter(r=>r.fatura_antecipada==='Não').length)} não`
                : id===4 ? `${int(rows.filter(r=>proj(r).status==='Faturado').length)} já faturadas`
-               : id===7 ? `${int(rows.filter(r=>outra7(r)).length)} refletidas da Cobrança · ${int(rows.filter(r=>s7(r).status_pgto==='Nunca pagou').length)} nunca pagou`
+               : id===7 ? `${int(rows.filter(r=>s7(r).status_pgto==='Nunca pagou').length)} nunca pagou`
                : `${int(rows.filter(r=>r.sit_ligacao==='Cortada').length)} cortadas`;
     return `<div class="card" style="margin-top:0;cursor:pointer" onclick="S.acaoSel=${id};go('acao')">
       <h2>${nome}</h2><p class="sub">${int(R.n)} matrículas · ${money(R.vt)} ${lbl}${extra?` · ${extra}`:''}</p>
@@ -2807,13 +2837,14 @@ function idxOutra(){
     if(!b||String(a.atualizado_em||'')>String(b.atualizado_em||'')) m.set(a.matricula,a); }
   m.__ref=S.acao; _outKey=key; return _outIdx=m;
 }
-const outra7 = r => r.status_atuacao ? null : idxOutra().get(r.matricula)||null;
+/* 26/11: a Atuação Saldo NÃO considera atuações de outras bases: o executivo atua nela independentemente */
+const outra7 = r => null;
 function st7(r){ if(r.status_atuacao) return r.status_atuacao; const o=outra7(r); if(!o) return 'Sem atuação';
   return o.status_atuacao; }
 const txtOutra = o => o.status_atuacao||'';
+function plano7(r){ const x=r.status_atuacao?r:outra7(r); if(!x) return 'Sem atuação'; return x.plano_acao||planoDe(x.status_atuacao)?.nome||'Sem plano definido'; }
 K_FILTROS[7]={
-  com:['Com atuação (própria ou refletida)',r=>st7(r)!=='Sem atuação'], propria:['Atuadas nesta ação',r=>!!r.status_atuacao],
-  refl:['Já atuadas na Cobrança',r=>!!outra7(r)], sem:['Sem atuação',r=>st7(r)==='Sem atuação'],
+  com:['Com atuação',r=>st7(r)!=='Sem atuação'], sem:['Sem atuação',r=>st7(r)==='Sem atuação'],
   agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()],
   nunca:['Nunca pagou',r=>s7(r).status_pgto==='Nunca pagou']};
 
@@ -2826,16 +2857,16 @@ function viewSaldo7(){
   const sups=[...new Set(all.map(r=>r.carteira||'-'))].sort(), agings=[...new Set(all.map(r=>r.base_origem).filter(Boolean))].sort((a,b)=>parseInt(a)-parseInt(b));
   const obs=[...new Set(all.map(r=>s7(r).obs).filter(Boolean))].sort();
   const chip=(k,v,l,n)=>`<button class="chip ${fon(k,v)?'on':''}" onclick="setF('${k}','${esc(v)}')">${esc(l)} <span class="n">${int(n)}</span></button>`;
-  return `<div class="msg info" style="margin-top:18px">Saldo vencido por <b>aging</b>. Status de cobrança (os mesmos da Ação de Cobrança). <b>Se a matrícula já foi atuada na Ação de Cobrança ou na Base de Cobrança, a atuação aparece aqui</b> (↪ refletida) e conta como atuada. Não precisa atuar de novo, só se houver novidade.</div>
+  return `<div class="msg info" style="margin-top:18px">Saldo vencido por <b>aging</b>. No <b>Atuar</b>, escolha o plano de ação e a tratativa: as informações que precisam ser preenchidas abrem sozinhas. <b>Atue em todas as matrículas desta base</b>, mesmo que já tenham atuação em outra ação.</div>
   <div class="kpis">
     ${kc('','hero-k',`<div class="l">Matrículas com saldo</div><div class="v">${int(all.length)}</div><div class="s">${money(val(all))} vencido</div>`)}
     ${kc('com','c3',`<div class="l">Com atuação</div><div class="v">${int(com.length)}</div><div class="s">${pct(com.length/all.length,0)} · ${money(val(com))}</div>${barra(com.length,all.length,'var(--leaf)')}`)}
-    ${kc('refl','c1',`<div class="l">↪ Já atuadas na Cobrança</div><div class="v">${int(refl.length)}</div><div class="s">${int(prop.length)} atuadas aqui</div>`)}
     ${kc('sem','c4',`<div class="l">Sem atuação</div><div class="v">${int(sem.length)}</div><div class="s">${money(val(sem))}</div>`)}
     ${kc('agend','c5',`<div class="l">Pagamento agendado</div><div class="v">${int(agend.length)}</div><div class="s">a partir de hoje · ${money(val(agend))}</div>`)}
     ${kc('nunca','c2',`<div class="l">Nunca pagou</div><div class="v">${int(nunca.length)}</div><div class="s">${money(val(nunca))}</div>`)}
   </div>
-  <div class="card" style="margin-top:18px"><h3>Status de atuação <small>inclui as atuações refletidas da Cobrança e da Base de Cobrança · clique para filtrar</small></h3>${barrasLaterais(ks.map(k=>{ const x=all.filter(r=>st7(r)===k); return [k,x.length,val(x)]; }),'satu')}</div>
+  <div class="card" style="margin-top:18px"><h3>Plano de ação <small>clique para filtrar</small></h3>${barrasLaterais([...new Set(all.map(plano7))].map(k=>{ const x=all.filter(r=>plano7(r)===k); return [k,x.length,val(x)]; }),'pl7')}</div>
+  <div class="card" style="margin-top:18px"><h3>Tratativa / status de atuação <small>clique para filtrar</small></h3>${barrasLaterais(ks.map(k=>{ const x=all.filter(r=>st7(r)===k); return [k,x.length,val(x)]; }),'satu')}</div>
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula ou cliente" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
     <div class="chips"><span class="mat" style="font-weight:700;align-self:center">Sup:</span>${sups.map(v=>chip('cart4',v,v,all.filter(r=>(r.carteira||'-')===v).length)).join('')}</div>
@@ -2852,8 +2883,8 @@ function sal7Table(rows){
     ${rows.slice(0,lim).map(r=>{ const o=outra7(r), x=s7(r), av=r.status_atuacao==='A VENCER'; return `<tr><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula}${x.obs?' · '+esc(x.obs):''}${x.fora_base?' · <span class="sit-c">saiu da base (mantida pela atuação)</span>':''}</span></div><button class="btn sm ${o?'sec':''}" onclick="openAtuar(7,${r.matricula})">${o?'Atualizar':'Atuar'}</button></div></td>${ge?`<td>${r.executivo?pessoa(r.executivo):'<span class="mat">—</span>'}${tagFerias(r.executivo)}</td>`:''}
       <td>${esc(r.carteira||'—')}</td><td>${x.status_pgto==='Nunca pagou'?'<span class="pill st-4">Nunca pagou</span>':esc(x.status_pgto||'—')}</td>
       <td class="r num">${money2(r.valor)}</td><td class="r">${int(x.notas||0)}</td><td>${fdate(r.vencimento)}</td><td>${int(r.aging||0)} dias</td>
-      <td class="wrap-c">${r.status_atuacao?`<b>${esc(r.status_atuacao)}</b>${av&&r.novo_vencimento?`<br><span class="mat">vence ${fdate(r.novo_vencimento)}</span><br>${vencTag(r.novo_vencimento)}`:''}`
-        : o?`<span class="xb xb${o.acao_id}" title="${esc([txtOutra(o),o.observacao].filter(Boolean).join(' · '))}">↪ ${esc(NOME_ACAO[o.acao_id])}</span><br><b>${esc(txtOutra(o)||o.status)}</b><br><span class="mat">${fdate(o.atualizado_em)}${o.data_agendamento?' · agendado '+fdate(o.data_agendamento):''}</span>`
+      <td class="wrap-c">${r.status_atuacao?`${stCob(r)}${av&&r.novo_vencimento?`<br><span class="mat">vence ${fdate(r.novo_vencimento)}</span><br>${vencTag(r.novo_vencimento)}`:''}`
+        : o?`<span class="xb xb${o.acao_id}" title="${esc([txtOutra(o),o.observacao].filter(Boolean).join(' · '))}">↪ ${esc(NOME_ACAO[o.acao_id])}</span><br>${stCob(o)}<br><span class="mat">${fdate(o.atualizado_em)}${o.data_agendamento?' · agendado '+fdate(o.data_agendamento):''}</span>`
         : '<span class="pill st-0">Sem atuação</span>'}${r.status!=='Não iniciado'&&r.status!=='Em atuação'?`<br>${stPill(r.status)}`:''}</td>
       <td>${fdate(r.data_agendamento||(o&&o.data_agendamento))}</td><td class="wrap-c obs-td">${r.observacao?obsCell(r):o&&o.observacao?obsCell(o):'<span class="mat">—</span>'}</td><td class="wrap-c">${outrasBases(r.matricula,7)}</td></tr>`; }).join('')}
   </tbody></table></div>
@@ -2863,9 +2894,9 @@ function sal7Table(rows){
 function exportSaldo7(rows){
   return rows.map(r=>{ const o=outra7(r), x=s7(r); return {Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Sup:r.carteira,'Status pagamento':x.status_pgto||'','Obs. da base':x.obs||'',
     'Saldo vencido':+r.valor||0,'Notas vencidas':x.notas||0,'Venc. mais antigo':r.vencimento?fdate(r.vencimento):'',Aging:r.aging,
-    'Status de atuação':st7(r),'Atuação de':r.status_atuacao?'Atuação Saldo':o?'Refletida · '+NOME_ACAO_L[o.acao_id]:'',
+    'Status de atuação':st7(r),
     'Data agendamento':(r.data_agendamento||(o&&o.data_agendamento))?fdate(r.data_agendamento||o.data_agendamento):'',
-    Observação:r.observacao||(o&&o.observacao)||'',Status:r.status,'Atuação em outras ações':outrasBases(r.matricula,7).replace(/<[^>]+>/g,'').replace(/\s+/g,' ').replace(/^—$/,'').trim(),'Atualizado em':r.atualizado_em?fdt(r.atualizado_em):''}; });
+    Observação:r.observacao||(o&&o.observacao)||'',Status:r.status,'Atuação em outras ações':outrasBases(r.matricula,7).replace(/<[^>]+>/g,'').replace(/\s+/g,' ').replace(/^—$/,'').trim(),'Atualizado em':r.atualizado_em?fdt(r.atualizado_em):'',...exportEsteira(r.status_atuacao?r:(o||r))}; });
 }
 
 /* ---------- upload da base (Gestão › Cargas) ---------- */
@@ -2958,14 +2989,284 @@ async function feriasExcluir(id){ if(!confirm('Excluir este período de férias?
 </script>
 <script>
 /* =====================================================================
+   ESTEIRA DE ATUAÇÃO · COBRANÇA (Ação de Cobrança, Base de Cobrança, Atuação Saldo)
+   Plano de ação → Tratativa → caixinhas que abrem conforme a escolha
+   + Prazo do cliente + Situação (obrigatória). Listas editáveis pela gestão.
+   A tratativa é gravada em status_atuacao (gráficos, filtros e SLA continuam iguais).
+   ===================================================================== */
+const ACOES_ESTEIRA=[7];   // por enquanto só a Atuação Saldo · depois: 2 (Cobrança) e 6 (Base de Cobrança)
+const EF_OPTS=[['','Em atuação'],['Acordo aceito','Acordo aceito'],['Pagamento identificado','Pagamento identificado'],['Encaminhado jurídico','Encaminhado jurídico'],['Proposta recusada','Proposta recusada']];
+const TIPOS_CAMPO=[['lista','Lista suspensa'],['texto','Texto'],['data','Data'],['valor','Valor (R$)'],['simnao','Sim / Não']];
+const L_=(id,rotulo,opcoes)=>({id,rotulo,tipo:'lista',opcoes}), T_=(id,rotulo)=>({id,rotulo,tipo:'texto'}), D_=(id,rotulo)=>({id,rotulo,tipo:'data'}), V_=(id,rotulo)=>({id,rotulo,tipo:'valor'}), SN_=(id,rotulo)=>({id,rotulo,tipo:'simnao'});
+let _tid=0; const tr=(nome,campos,ef,extra)=>({id:'t'+(++_tid),nome,...(campos&&campos.length?{campos}:{}),...(ef?{ef}:{}),...(extra||{})});
+const COB_PADRAO = () => { _tid=0; return {
+  campos:[
+    L_('forma_contato','Forma de contato',['Telefone','WhatsApp','E-mail','Visita presencial','Reunião online']),
+    T_('falou_com','Falou com (nome / cargo)'),
+    L_('resultado_contato','Resultado do contato',['Cliente vai pagar','Cliente pediu prazo','Cliente contesta o débito','Cliente sem condições de pagar','Cliente não localizado','Responsável ausente']),
+    SN_('interesse_negociar','Interesse em negociar?'),
+    T_('proxima_acao','Próxima ação'),
+    D_('data_visita','Data da visita'),
+    {id:'agendamento',rotulo:'Data do pagamento agendado',tipo:'data',obrig:true,fixo:true},
+    {id:'vencimento',rotulo:'Data de vencimento',tipo:'data',obrig:true,fixo:true},
+    V_('valor_prometido','Valor a pagar (R$)'),
+    L_('forma_pagamento','Forma de pagamento',['Boleto','PIX / TED','Débito automático','Parcelamento','Cartão de crédito']),
+    V_('valor_proposta','Valor da proposta (R$)'),
+    V_('valor_negociado','Valor negociado (R$)'),
+    L_('status_negociacao','Status da negociação',['Em andamento','Aguardando retorno','Em aprovação','Aprovada','Recusada','Formalizada','Sem acordo']),
+    L_('com_quem','Com quem está?',['Cliente','Advogado do cliente','Executivo responsável','Gestão','Jurídico','Comercial','Faturamento','Outra área interna']),
+    T_('responsavel','Responsável / contato'),
+    D_('prazo_retorno','Prazo de retorno'),
+    D_('data_formalizacao','Data da formalização'),
+    T_('parcelas','Quantidade de parcelas'),
+    L_('motivo_nao_conclusao','Motivo da não conclusão',['Cliente sem condições financeiras','Discorda do valor','Não aceita as condições','Sem retorno do cliente','Aguardando decisão judicial']),
+    SN_('nova_negociacao','Possibilidade de nova negociação?'),
+    T_('protocolo','Nº do processo / protocolo / O.S.'),
+    V_('valor_acordo','Valor do acordo (R$)'),
+    L_('status_cumprimento','Status do cumprimento',['Em dia','Em atraso','Cumprido','Descumprido']),
+    T_('pendencia','Pendência identificada'),
+    L_('motivo_vistoria','Motivo da vistoria',['Divergência de abastecimento','Validar abastecimento','Verificar disponibilidade de rede','Verificar irregularidade','Avaliação técnica']),
+    L_('resp_vistoria','Responsável pela vistoria',['INEA','Operação','VCG','Área técnica','Outra área']),
+    D_('data_vistoria','Data da vistoria'),
+    L_('resultado_vistoria','Resultado da vistoria',['Regular','Irregular','Abastecimento confirmado','Abastecimento não confirmado','Necessita adequação','Sem possibilidade de atendimento','Aguardando parecer']),
+    SN_('nova_atuacao','Necessita nova atuação?'),
+    L_('motivo_cancelamento','Motivo do cancelamento',['Erro de faturamento','Cobrança indevida','Duplicidade de cobrança','Abastecimento não realizado','Problema cadastral','Divergência de leitura','Decisão judicial']),
+    V_('valor_debito','Valor do débito envolvido (R$)'),
+    T_('qtd_faturas','Quantidade de faturas'),
+    L_('area_resp','Área responsável',['Faturamento','Comercial','Operação','Jurídico','Cadastro','Gestão']),
+    V_('valor_aprovado','Valor aprovado para cancelamento (R$)'),
+    D_('data_aprovacao','Data da aprovação'),
+    T_('resp_aprovacao','Responsável pela aprovação'),
+    T_('motivo_reprovacao','Motivo da reprovação'),
+    SN_('reavaliacao','Possibilidade de reavaliação?'),
+    V_('valor_cancelado','Valor efetivamente cancelado (R$)'),
+    D_('data_execucao','Data da execução'),
+    L_('tipo_atuacao_com','Tipo de atuação',['Articulação com liderança','Visita ao local','Mediação de conflito','Identificação de dificuldades de pagamento','Ação de cobrança','Oferta de acordo comercial']),
+    SN_('contato_lideranca','Houve contato com liderança?'),
+    L_('resultado_com','Resultado da atuação',['Cliente localizado','Cliente não localizado','Liderança acionada','Proposta apresentada','Cliente demonstrou interesse','Cliente não demonstrou interesse','Necessita nova atuação','Concluída']),
+    SN_('interesse_acordo','Houve interesse em acordo?'),
+    L_('motivo_acionamento','Motivo do acionamento',['Divergência de faturamento','Divergência cadastral','Análise de consumo','Análise financeira','Avaliação comercial','Apoio jurídico','Solicitação de exceção']),
+    D_('data_encaminhamento','Data do encaminhamento'),
+    L_('resultado_analise','Resultado da análise',['Procedente','Improcedente','Parcialmente procedente']),
+    T_('pendencias_doc','Informações / documentos pendentes'),
+    L_('motivo_contestacao','Motivo da contestação',['Consumo / valor alto','Cobrança de esgoto','Leitura','Tarifa / categoria','Fatura não recebida','Vazamento']),
+    T_('descricao_plano','Descrição do plano de ação')],
+  planos:[
+    {id:'cobranca',nome:'Cobrança / Visita',campos:['forma_contato','falou_com','resultado_contato','interesse_negociar','proxima_acao'],trat:[
+      tr('Contato realizado'), tr('Contato realizado - aguardando retorno do cliente'), tr('Visita agendada',['data_visita']),
+      tr('Sem contato - visita programada para essa semana',['data_visita']), tr('Visita realizada'), tr('Aguardando retorno'),
+      tr('Proposta de negociação'), tr('Sem sucesso na atuação')]},
+    {id:'pagamento',nome:'Pagamento',campos:[],trat:[
+      tr('Pagamento agendado',['agendamento','valor_prometido','forma_pagamento'],'Acordo aceito'), tr('A VENCER',['vencimento'],'',{so:[6]}),
+      tr('Pago - sem débito no sistema',[],'Pagamento identificado'), tr('Sem débito no sistema - parcelamento realizado',['forma_pagamento','parcelas'],'Pagamento identificado'),
+      tr('Flutuante/Perfil escorregadio - Já teve pagamento no mês atual'), tr('Flutuante/Perfil escorregadio')]},
+    {id:'acordo_comercial',nome:'Acordo Comercial',campos:['status_negociacao','com_quem','responsavel','prazo_retorno'],trat:[
+      tr('Contato inicial com o cliente'), tr('Proposta apresentada',['valor_proposta']), tr('Proposta de acordo apresentada',['valor_proposta']),
+      tr('Aguardando retorno do cliente'), tr('Em aprovação pelo cliente'), tr('Reunião com advogado'), tr('Em negociação',['valor_proposta','valor_negociado']),
+      tr('Negociação de contrato/vacância em andamento'), tr('Aguardando formalização do acordo',['valor_negociado']),
+      tr('Acordo formalizado',['valor_negociado','data_formalizacao','forma_pagamento','parcelas'],'Acordo aceito'),
+      tr('Acordo recusado',['motivo_nao_conclusao','nova_negociacao'],'Proposta recusada'), tr('Sem sucesso na negociação',['motivo_nao_conclusao','nova_negociacao'],'Proposta recusada')]},
+    {id:'acordo_judicial',nome:'Acordo Judicial',campos:['protocolo','valor_acordo','status_cumprimento','pendencia'],trat:[
+      tr('Cliente com Processo Judicial',[],'Encaminhado jurídico'), tr('Acordo em andamento',[],'Encaminhado jurídico'), tr('Acordo cumprido',[],'Pagamento identificado'),
+      tr('Acordo descumprido',[],'Encaminhado jurídico'), tr('Aguardando retorno do Jurídico',[],'Encaminhado jurídico'), tr('Necessária nova avaliação',[],'Encaminhado jurídico')]},
+    {id:'vistoria',nome:'Vistoria com INEA',campos:['motivo_vistoria','resp_vistoria','data_vistoria'],trat:[
+      tr('Solicitar vistoria'), tr('Aguardando agendamento'), tr('Vistoria agendada'), tr('Vistoria pendente de ser realizada - Já solicitei prioridade'),
+      tr('Vistoria realizada',['resultado_vistoria','nova_atuacao']), tr('Validar abastecimento'), tr('Aguardando parecer técnico'), tr('Aguardando documentação',['pendencias_doc']),
+      tr('Necessária nova vistoria',['prazo_retorno']), tr('Vistoria concluída',['resultado_vistoria','nova_atuacao']), tr('Sem possibilidade de regularização',['resultado_vistoria'])]},
+    {id:'cancelamento',nome:'Cancelamento de Débitos',campos:['motivo_cancelamento','valor_debito','qtd_faturas','area_resp','responsavel'],trat:[
+      tr('Solicitação recebida'), tr('Em análise documental'), tr('Encaminhado para área responsável',['prazo_retorno']), tr('Aguardando validação interna',['prazo_retorno']),
+      tr('Aguardando documentação do cliente',['pendencias_doc','prazo_retorno']), tr('Em aprovação',['prazo_retorno']),
+      tr('Cancelamento aprovado',['valor_aprovado','data_aprovacao','resp_aprovacao']), tr('Cancelamento reprovado',['motivo_reprovacao','reavaliacao']),
+      tr('Cancelamento realizado',['valor_cancelado','data_execucao']), tr('Concluído')]},
+    {id:'comunidade',nome:'Ação com Time de Comunidade',campos:['tipo_atuacao_com','responsavel'],trat:[
+      tr('Acionamento do time de comunidade'), tr('Direcionado ao Time de Comunidades - Acompanhando'), tr('Aguardando articulação'),
+      tr('Articulação com liderança',['contato_lideranca']), tr('Visita à comunidade / condomínio',['data_visita','contato_lideranca']), tr('Identificação do cenário'),
+      tr('Ofertar acordo comercial',['interesse_acordo']), tr('Aguardando retorno do cliente'), tr('Em acompanhamento'),
+      tr('Ação concluída',['resultado_com','interesse_acordo']), tr('Sem sucesso na atuação',['resultado_com'])]},
+    {id:'analise',nome:'Análise / Tratativa Interna',campos:['motivo_acionamento','area_resp','responsavel','data_encaminhamento','prazo_retorno'],trat:[
+      tr('Encaminhado para área responsável'), tr('Em análise interna'), tr('Aguardando parecer'), tr('Aguardando validação'), tr('Aguardando aprovação'),
+      tr('Retorno recebido',['resultado_analise']), tr('Necessária complementação',['pendencias_doc']), tr('Concluído',['resultado_analise']),
+      tr('Fatura em contestação',['motivo_contestacao','protocolo']), tr('Não concorda com a cobrança de esgoto'), tr('Faturão'),
+      tr('Pendente de fluxo interno (aprovação, gestão, faturamento)')]},
+    {id:'impedimento',nome:'Impedimento',campos:[],trat:[tr('Local fechado/abandonado/consumo final'), tr('Cliente cortado')]},
+    {id:'outros',nome:'Outros',campos:['descricao_plano','responsavel'],trat:[tr('Outra atuação')]}]
+}; };
+S.cobCfg=COB_PADRAO();
+async function loadCobCfg(){ try{ const {data}=await sb.from('config_listas').select('valor').eq('chave','cobranca').maybeSingle(); if(data&&data.valor&&data.valor.planos) S.cobCfg=data.valor; }catch(_){} }
+const campoDef = id => (S.cobCfg.campos||[]).find(c=>c.id===id);
+const planosAtivos = aid => (S.cobCfg.planos||[]).filter(p=>!p.inativo&&tratsDe(p,aid).length);
+const tratsDe = (p,aid) => (p.trat||[]).filter(t=>!t.inativo&&(!t.so||!t.so.length||t.so.includes(aid))&&!(aid===7&&t.nome==='A VENCER'));
+function tratCob(aid){ return [...new Set(planosAtivos(aid).flatMap(p=>tratsDe(p,aid).map(t=>t.nome)))]; }
+/* plano de uma tratativa (para atuações antigas sem plano gravado) */
+function planoDe(st){ if(!st) return null; for(const p of S.cobCfg.planos||[]) if((p.trat||[]).some(t=>t.nome===st)) return p; return null; }
+function tratDef(st,pl){ const ps=S.cobCfg.planos||[]; const p0=pl&&ps.find(p=>p.nome===pl); const t0=p0&&(p0.trat||[]).find(t=>t.nome===st); if(t0) return t0; for(const p of ps){ const t=(p.trat||[]).find(t=>t.nome===st); if(t) return t; } return null; }
+const efeitoCob = (st,pl) => tratDef(st,pl)?.ef;
+
+/* ---------- formulário guiado (dentro do Atuar) ---------- */
+function esteiraForm(aid,r,pre){
+  const v=pre||r, ps=planosAtivos(aid), pl=v.plano_acao||planoDe(v.status_atuacao)?.nome||'';
+  return `<div class="full est">
+    <div class="est-h"><span>1</span> Plano de ação</div>
+    <select id="e_pl" onchange="estTrat(${aid})"><option value="">— escolha o plano de ação —</option>${ps.map(p=>`<option ${p.nome===pl?'selected':''}>${esc(p.nome)}</option>`).join('')}</select>
+    <div id="e_trW"></div><div id="e_cpW" class="fgrid" style="margin-top:6px"></div></div>`;
+}
+let _estPre=null;
+function estInit(aid,r,pre){ _estPre={aid,v:pre||r,det:{...((pre||r).atuacao_det||{})}}; estTrat(aid,true); }
+function estTrat(aid,init){
+  const pn=$('e_pl').value, p=(S.cobCfg.planos||[]).find(x=>x.nome===pn), w=$('e_trW');
+  if(!p){ w.innerHTML=''; $('e_cpW').innerHTML=''; return; }
+  const v=_estPre?.v||{}, cur=init?v.status_atuacao:'', ts=tratsDe(p,aid), outro=init&&cur==='Outro';
+  w.innerHTML=`<div class="est-h"><span>2</span> Tratativa</div>
+    <select id="e_tr" onchange="estCampos(${aid})"><option value="">— escolha a tratativa —</option>${ts.map(t=>`<option ${t.nome===cur?'selected':''}>${esc(t.nome)}</option>`).join('')}${cur&&cur!=='Outro'&&!ts.some(t=>t.nome===cur)&&planoDe(cur)===p?`<option selected>${esc(cur)}</option>`:''}<option value="Outro" ${outro?'selected':''}>Outro (descrever)</option></select>
+    <input id="e_trO" placeholder="Descreva a tratativa" style="margin-top:6px;display:${outro?'':'none'}" value="${esc(outro?(_estPre.det.tratativa_outro||''):'')}">`;
+  estCampos(aid,init);
+}
+function campoHTML(c,val,obrig){
+  const req=obrig?' <span style="color:var(--rose)">*</span>':'', id='ec_'+c.id;
+  if(c.tipo==='lista'){ const ops=c.opcoes||[], out=val&&!ops.includes(val);
+    return `<div class="fld"><label>${esc(c.rotulo)}${req}</label><select id="${id}" onchange="$('${id}_o').style.display=this.value==='__outro'?'':'none'"><option value="">—</option>${ops.map(o=>`<option ${o===val?'selected':''}>${esc(o)}</option>`).join('')}<option value="__outro" ${out?'selected':''}>Outro (descrever)</option></select><input id="${id}_o" placeholder="Descreva" style="margin-top:6px;display:${out?'':'none'}" value="${esc(out?val:'')}"></div>`; }
+  if(c.tipo==='simnao') return `<div class="fld"><label>${esc(c.rotulo)}${req}</label><select id="${id}"><option value="">—</option>${['Sim','Não'].map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join('')}</select></div>`;
+  if(c.tipo==='data') return `<div class="fld"><label>${esc(c.rotulo)}${req}</label><input type="date" id="${id}" value="${esc(val||'')}"></div>`;
+  if(c.tipo==='valor') return `<div class="fld"><label>${esc(c.rotulo)}${req}</label><input id="${id}" inputmode="decimal" placeholder="0,00" value="${val!=null&&val!==''?(typeof val==='number'?val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):esc(val)):''}"></div>`;
+  return `<div class="fld"><label>${esc(c.rotulo)}${req}</label><input id="${id}" value="${esc(val||'')}"></div>`;
+}
+function camposAtivos(aid){
+  const p=(S.cobCfg.planos||[]).find(x=>x.nome===$('e_pl')?.value); if(!p) return [];
+  const tn=$('e_tr')?.value, t=(p.trat||[]).find(x=>x.nome===tn);
+  const ids=[...new Set([...(p.campos||[]),...((t&&t.campos)||[])])];
+  return ids.map(campoDef).filter(Boolean).filter(c=>!(c.id==='vencimento'&&aid!==6));
+}
+function estCampos(aid,init){
+  const tr=$('e_tr'); if(!tr) return; $('e_trO').style.display=tr.value==='Outro'?'':'none';
+  const p=$('e_pl').value, w=$('e_cpW'), v=_estPre?.v||{}, det={..._estPre.det};
+  // valores já digitados nesta tela não se perdem ao trocar a tratativa
+  if(!init) for(const c of S.cobCfg.campos||[]){ const x=lerCampo(c); if(x!==undefined&&x!=='') det[c.id]=x; }
+  _estPre.det=det;
+  if(!tr.value){ w.innerHTML=''; return; }
+  const cs=camposAtivos(aid);
+  const val=c=> c.id==='agendamento'?(det.agendamento??v.data_agendamento): c.id==='vencimento'?(det.vencimento??(v.status_atuacao==='A VENCER'?v.novo_vencimento:'')): det[c.id];
+  w.innerHTML=(cs.length?`<div class="est-h full"><span>3</span> Informações da tratativa</div>`:'')+cs.map(c=>campoHTML(c,val(c),c.obrig)).join('')
+    +`<div class="est-h full"><span>${cs.length?4:3}</span> Prazo e situação</div>
+     <div class="fld"><label>Prazo do cliente</label><input type="date" id="e_pz" value="${esc(det.prazo_cliente||'')}"><span class="help">Data combinada com o cliente para retorno ou solução.</span></div>`;
+}
+function lerCampo(c){ const e=$('ec_'+c.id); if(!e) return undefined;
+  if(c.tipo==='lista'&&e.value==='__outro') return ($('ec_'+c.id+'_o').value||'').trim();
+  if(c.tipo==='valor'){ const t=e.value.trim(); if(!t) return ''; const n=+t.replace(/\./g,'').replace(',','.'); return isNaN(n)?t:n; }
+  return (e.value||'').trim(); }
+/* valida e devolve {upd} ou {erro} */
+function esteiraLer(aid){
+  const pl=$('e_pl').value, tr=$('e_tr')?.value, obs=($('a_obs').value||'').trim();
+  if(!pl) return {erro:'Escolha o plano de ação.',el:'e_pl'};
+  if(!tr) return {erro:'Escolha a tratativa.',el:'e_tr'};
+  const det={};
+  if(tr==='Outro'){ const o=$('e_trO').value.trim(); if(!o) return {erro:'Descreva a tratativa.',el:'e_trO'}; det.tratativa_outro=o; }
+  for(const c of camposAtivos(aid)){ const x=lerCampo(c); if(c.tipo==='lista'&&$('ec_'+c.id).value==='__outro'&&!x) return {erro:`Descreva "${c.rotulo}".`,el:'ec_'+c.id+'_o'};
+    if(c.obrig&&(x===''||x==null)) return {erro:`Preencha "${c.rotulo}".`,el:'ec_'+c.id};
+    if(c.tipo==='valor'&&x!==''&&typeof x!=='number') return {erro:`"${c.rotulo}" precisa ser um valor (ex.: 1.250,00).`,el:'ec_'+c.id};
+    if(x!==''&&x!=null) det[c.id]=x; }
+  const pz=$('e_pz')?.value; if(pz) det.prazo_cliente=pz;
+  if(!obs) return {erro:'Escreva a situação: contextualize o caso.',el:'a_obs'};
+  const upd={plano_acao:pl,status_atuacao:tr,observacao:obs,data_agendamento:det.agendamento||null};
+  if(aid===6) upd.novo_vencimento=tr==='A VENCER'?(det.vencimento||null):null;
+  delete det.agendamento; delete det.vencimento;
+  upd.atuacao_det=Object.keys(det).length?det:null;
+  return {upd};
+}
+
+/* ---------- exibição nas tabelas / exportação ---------- */
+function detTxt(r){ const d=r.atuacao_det||{}; const out=[];
+  for(const [k,val] of Object.entries(d)){ if(k==='tratativa_outro'||k==='prazo_cliente'||val===''||val==null) continue; const c=campoDef(k);
+    const t=c?.tipo==='valor'&&typeof val==='number'?money2(val):c?.tipo==='data'?fdate(val):String(val); out.push([c?.rotulo||k,t]); }
+  return out; }
+function stCob(r){
+  if(!r.status_atuacao) return '';
+  if(!ACOES_ESTEIRA.includes(r.acao_id)&&r.acao_id!==undefined&&!r.plano_acao) return `<b>${esc(r.status_atuacao)}</b>`;
+  const pl=r.plano_acao||planoDe(r.status_atuacao)?.nome, d=r.atuacao_det||{}, det=detTxt(r);
+  return `${pl?`<span class="mat" style="font-weight:700;color:var(--blue)">${esc(pl)}</span><br>`:''}<b>${esc(r.status_atuacao==='Outro'&&d.tratativa_outro?'Outro: '+d.tratativa_outro:r.status_atuacao)}</b>`
+    +(d.prazo_cliente?`<br><span class="mat">prazo do cliente ${fdate(d.prazo_cliente)}</span> ${vencTag(d.prazo_cliente)}`:'')
+    +(det.length?`<br><span class="mat" title="${esc(det.map(x=>x.join(': ')).join(' · '))}">${esc(det.slice(0,3).map(x=>x[1]).join(' · '))}${det.length>3?' …':''}</span>`:'');
+}
+function exportEsteira(r){ const o={'Plano de ação':r.plano_acao||planoDe(r.status_atuacao)?.nome||'','Tratativa':r.status_atuacao==='Outro'?'Outro: '+(r.atuacao_det?.tratativa_outro||''):(r.status_atuacao||''),'Prazo do cliente':r.atuacao_det?.prazo_cliente?fdate(r.atuacao_det.prazo_cliente):''};
+  for(const c of S.cobCfg.campos||[]){ if(c.id==='agendamento'||c.id==='vencimento') continue; const v=r.atuacao_det?.[c.id]; o[c.rotulo]=v==null?'':c.tipo==='data'?fdate(v):v; }
+  return o; }
+
+/* ---------- GESTÃO · editor das listas ---------- */
+let ED=null;
+function listasHTML(){
+  ED=ED||JSON.parse(JSON.stringify(S.cobCfg));
+  const cs=ED.campos||[];
+  const chk=(sel,ids,pi,ti)=>`<div class="est-chk">${cs.filter(c=>!(c.id==='vencimento')).map(c=>`<label><input type="checkbox" ${ids.includes(c.id)?'checked':''} onchange="edCampoTog(${pi},${ti},'${c.id}',this.checked)"> ${esc(c.rotulo)}</label>`).join('')}</div>`;
+  return `<div class="card"><div style="display:flex;gap:16px;justify-content:space-between;flex-wrap:wrap;align-items:flex-start">
+      <div style="flex:1;min-width:300px"><h3 style="margin:0 0 4px">Esteira de atuação · Cobrança</h3><p class="mat" style="margin:0">Por enquanto vale só para a <b>Atuação Saldo</b> (depois de alinhada, passa para Ação de Cobrança e Base de Cobrança). O executivo escolhe o <b>Plano de ação</b>, depois a <b>Tratativa</b>, e abrem só as caixinhas marcadas aqui. Toda lista ganha a opção "Outro (descrever)" sozinha.</p></div>
+      <div style="display:flex;gap:8px"><button class="btn sec" onclick="edPadrao()">Restaurar padrão</button><button class="btn" onclick="edSalvar()">Salvar alterações</button></div></div></div>
+  <div class="card" style="margin-top:14px"><h3>Planos de ação e tratativas</h3>
+    ${ED.planos.map((p,pi)=>`<div class="ed-pl ${p.inativo?'ed-off':''}">
+      <div class="ed-row"><input class="ed-nome" value="${esc(p.nome)}" onchange="ED.planos[${pi}].nome=this.value.trim()">
+        <label class="mat"><input type="checkbox" ${p.inativo?'':'checked'} onchange="ED.planos[${pi}].inativo=!this.checked;edRender()"> ativo</label>
+        <button class="btn sm sec" onclick="edMover(${pi},-1)" title="Subir">↑</button><button class="btn sm sec" onclick="edMover(${pi},1)" title="Descer">↓</button></div>
+      <div class="mat" style="margin:6px 0 2px">Caixinhas que abrem em <b>todas</b> as tratativas deste plano:</div>${chk('p',p.campos||[],pi,-1)}
+      <table class="ed-tb"><thead><tr><th>Tratativa</th><th>Conta como</th><th>Caixinhas a mais</th><th></th></tr></thead><tbody>
+      ${(p.trat||[]).map((t,ti)=>`<tr class="${t.inativo?'ed-off':''}"><td><input value="${esc(t.nome)}" ${t.nome==='A VENCER'?'disabled title="Usada na regra de vencimento da Base de Cobrança"':''} onchange="ED.planos[${pi}].trat[${ti}].nome=this.value.trim()">${t.so&&t.so.length?'<span class="mat" style="display:block;margin-top:3px">só na Base de Cobrança</span>':''}</td>
+        <td><select onchange="ED.planos[${pi}].trat[${ti}].ef=this.value">${EF_OPTS.map(([v,l])=>`<option value="${v}" ${(t.ef||'')===v?'selected':''}>${l}</option>`).join('')}</select></td>
+        <td><details><summary>${(t.campos||[]).length?esc((t.campos||[]).map(id=>campoDef(id)?.rotulo||(ED.campos.find(c=>c.id===id)||{}).rotulo||id).join(' · ')):'nenhuma · escolher'}</summary>${chk('t',t.campos||[],pi,ti)}</details></td>
+        <td><label class="mat"><input type="checkbox" ${t.inativo?'':'checked'} onchange="ED.planos[${pi}].trat[${ti}].inativo=!this.checked;edRender()"> ativa</label></td></tr>`).join('')}
+      </tbody></table>
+      <button class="btn sm sec" onclick="edNovaTrat(${pi})">+ Tratativa</button></div>`).join('')}
+    <button class="btn sec" onclick="edNovoPlano()">+ Plano de ação</button></div>
+  <div class="card" style="margin-top:14px"><h3>Caixinhas e opções das listas</h3><p class="mat">Uma opção por linha. Para tirar uma opção, apague a linha (atuações antigas continuam com o que foi gravado).</p>
+    <div class="ed-campos">${cs.map((c,ci)=>`<div class="ed-cp"><div class="ed-row"><input class="ed-nome" value="${esc(c.rotulo)}" onchange="ED.campos[${ci}].rotulo=this.value.trim()">
+      <select ${c.fixo?'disabled':''} onchange="ED.campos[${ci}].tipo=this.value;edRender()">${TIPOS_CAMPO.map(([v,l])=>`<option value="${v}" ${c.tipo===v?'selected':''}>${l}</option>`).join('')}</select>
+      <label class="mat"><input type="checkbox" ${c.obrig?'checked':''} ${c.fixo?'disabled':''} onchange="ED.campos[${ci}].obrig=this.checked"> obrigatória</label></div>
+      ${c.fixo?`<p class="mat" style="margin:4px 0 0">${c.id==='agendamento'?'Grava na Data de agendamento (gráficos de pagamento agendado).':'Grava a data de vencimento do A VENCER.'}</p>`:''}
+      ${c.tipo==='lista'?`<textarea rows="${Math.min(8,(c.opcoes||[]).length+1)}" onchange="ED.campos[${ci}].opcoes=this.value.split('\\n').map(s=>s.trim()).filter(Boolean)">${esc((c.opcoes||[]).join('\n'))}</textarea>`:''}</div>`).join('')}</div>
+    <button class="btn sec" onclick="edNovoCampo()">+ Nova caixinha</button></div>`;
+}
+function edRender(){ const y=scrollY; render(); scrollTo(0,y); }
+function edCampoTog(pi,ti,id,on){ const o=ti<0?ED.planos[pi]:ED.planos[pi].trat[ti]; o.campos=o.campos||[]; o.campos=on?[...new Set([...o.campos,id])]:o.campos.filter(x=>x!==id); }
+function edMover(pi,d){ const j=pi+d; if(j<0||j>=ED.planos.length) return; [ED.planos[pi],ED.planos[j]]=[ED.planos[j],ED.planos[pi]]; edRender(); }
+const novoId = p => p+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+function edNovaTrat(pi){ const n=prompt('Nome da nova tratativa:'); if(!n||!n.trim()) return; ED.planos[pi].trat.push({id:novoId('t'),nome:n.trim(),campos:[]}); edRender(); }
+function edNovoPlano(){ const n=prompt('Nome do novo plano de ação:'); if(!n||!n.trim()) return; ED.planos.push({id:novoId('p'),nome:n.trim(),campos:[],trat:[]}); edRender(); }
+function edNovoCampo(){ const n=prompt('Nome da nova caixinha (ex.: Nº de parcelas):'); if(!n||!n.trim()) return; ED.campos.push({id:novoId('c'),rotulo:n.trim(),tipo:'lista',opcoes:[]}); edRender(); }
+function edPadrao(){ if(!confirm('Voltar as listas para o padrão inicial? (só vale depois de salvar)')) return; ED=COB_PADRAO(); edRender(); }
+async function edSalvar(){
+  // validações
+  const nomes=ED.planos.flatMap(p=>p.trat.map(t=>t.nome));
+  if(ED.planos.some(p=>!p.nome)||nomes.some(n=>!n)) return toast('Há plano ou tratativa sem nome.',true);
+  const pn=ED.planos.map(p=>p.nome), dpl=pn.find((n,i)=>pn.indexOf(n)!==i); if(dpl) return toast(`O plano "${dpl}" aparece duas vezes.`,true);
+  for(const p of ED.planos){ const ns=p.trat.map(t=>t.nome), d=ns.find((n,i)=>ns.indexOf(n)!==i); if(d) return toast(`A tratativa "${d}" aparece duas vezes em ${p.nome}.`,true); }
+  if(nomes.includes('Outro')) return toast('"Outro" já existe automaticamente; use outro nome.',true);
+  if(ED.campos.some(c=>!c.rotulo)) return toast('Há caixinha sem nome.',true);
+  // renomeações: atualiza as atuações já gravadas com o nome antigo
+  const antes=new Map((S.cobCfg.planos||[]).flatMap(p=>(p.trat||[]).map(t=>[p.id+'|'+t.id,[t.nome,p.nome]]))), ren=[];
+  ED.planos.forEach(p=>p.trat.forEach(t=>{ const a=antes.get(p.id+'|'+t.id); if(a&&a[0]!==t.nome) ren.push([a[0],t.nome,a[1]]); }));
+  const linhasDe=(a,pl)=>S.acao.filter(r=>ACOES_ESTEIRA.includes(r.acao_id)&&r.status_atuacao===a&&(r.plano_acao?r.plano_acao===pl:planoDe(a)?.nome===pl));
+  const plAntes=new Map((S.cobCfg.planos||[]).map(p=>[p.id,p.nome])), renP=ED.planos.filter(p=>plAntes.get(p.id)&&plAntes.get(p.id)!==p.nome).map(p=>[plAntes.get(p.id),p.nome]);
+  const usos=ren.map(([a,n,pl])=>[a,n,linhasDe(a,pl).length]).filter(x=>x[2]);
+  if(usos.length&&!confirm(`Tratativas renomeadas que já têm atuação:\n${usos.map(([a,n,q])=>`• "${a}" → "${n}" (${q})`).join('\n')}\n\nAs atuações antigas passam a usar o nome novo. Continuar?`)) return;
+  const {error}=await sb.from('config_listas').upsert({chave:'cobranca',valor:ED,atualizado_em:new Date().toISOString(),atualizado_por:S.me.email},{onConflict:'chave'});
+  if(error) return toast(error.message,true);
+  for(const [a,n,pl] of ren){ const ms=linhasDe(a,pl).map(r=>r.matricula); for(let i=0;i<ms.length;i+=200){ const r=await sb.from('acao_base').update({status_atuacao:n,plano_acao:pl,atualizado_por:'plataforma'}).in('acao_id',ACOES_ESTEIRA).eq('status_atuacao',a).in('matricula',ms.slice(i,i+200)); if(r.error) toast(r.error.message,true); } }
+  for(const [a,n] of renP){ await sb.from('acao_base').update({plano_acao:n,atualizado_por:'plataforma'}).in('acao_id',ACOES_ESTEIRA).eq('plano_acao',a); }
+  S.cobCfg=JSON.parse(JSON.stringify(ED)); ED=null; toast('Listas salvas · já valem para todos');
+  if(ren.length||renP.length) await reload('acao'); render();
+}
+/* histórico legível */
+function histVal(campo,v){ if(v==null||v==='') return '—'; if(campo!=='atuacao_det') return v;
+  try{ const d=JSON.parse(v); return Object.entries(d).map(([k,x])=>{ const c=campoDef(k); const l=k==='prazo_cliente'?'Prazo do cliente':k==='tratativa_outro'?'Tratativa (outro)':(c?.rotulo||k);
+    return l+': '+(c?.tipo==='valor'&&typeof x==='number'?money2(x):(c?.tipo==='data'||k==='prazo_cliente')?fdate(x):x); }).join(' · ')||'—'; }catch(_){ return v; } }
+const HIST_ROT={plano_acao:'plano de ação',atuacao_det:'informações da tratativa',status_atuacao:'status de atuação / tratativa',observacao:'situação / observação'};
+</script>
+<script>
+/* =====================================================================
    GESTÃO · CARGAS E USUÁRIOS
    ===================================================================== */
 S.gtab='cargas';
 function viewGestao(){
-  const t=[['cargas','Cargas de bases'],['ferias','Férias e cobertura'],['usuarios','Usuários e acessos']];
+  const t=[['cargas','Cargas de bases'],['ferias','Férias e cobertura'],['listas','Listas de atuação'],['usuarios','Usuários e acessos']];
   return `<div class="sec-h"><div><h2>Gestão</h2><p>Bases mensais, PLR e acessos dos executivos</p></div></div>
   <div class="subtabs">${t.map(([k,l])=>`<button class="${S.gtab===k?'on':''}" onclick="S.gtab='${k}';render()">${l}</button>`).join('')}</div>
-  ${S.gtab==='cargas'?cargasHTML():S.gtab==='ferias'?feriasHTML():usuariosHTML()}`;
+  ${S.gtab==='cargas'?cargasHTML():S.gtab==='ferias'?feriasHTML():S.gtab==='listas'?listasHTML():usuariosHTML()}`;
 }
 function dropBox(id,label,accept,fn){ return `<label class="drop">${label}<input type="file" id="${id}" accept="${accept}" onchange="${fn}(this.files[0]);this.value=''"></label>`; }
 function ultCarga(tipo){ const c=S.cargas.find(c=>c.tipo===tipo||(tipo==='procx'&&c.tipo==='carteira_mensal'));
@@ -2983,7 +3284,7 @@ function cargasHTML(){
       <p class="mat" style="margin-top:8px">${ultCarga('acao_cobranca')}</p></div>
     <div class="card"><h3>Base de Cobrança · Out/Nov</h3><p>Planilha com as abas <b>Out</b> e <b>Nov</b> (Matrícula, Cliente, check, Débito, Venc, Ação 1…5). Outubro entra inteira ("Pagou ambas" aparece como não atuar); de Novembro só as sem pagamento. Quem saiu da base e não tem atuação é retirado; atuações nunca se perdem.</p>
       ${dropBox('upBC','📎 Anexar Base de Cobrança (.xlsx)','.xlsx,.xls','upBaseCob')}<p class="mat" style="margin-top:8px">${ultCarga('base_cobranca')}</p></div>
-    <div class="card"><h3>Atuação Saldo</h3><p>Planilha <b>Saldo - GC</b> (aba <b>Query1</b>: Matrícula, Cliente, Sup, Status Pgto, OBS, SaldoVencidas, MinDATA_VENC, Aging, NotasVencidas, Executivo, Situação). Novas entram; quem saiu e não tem atuação é retirado; atuações nunca se perdem. Reflete as atuações da Ação de Cobrança e da Base de Cobrança.</p>
+    <div class="card"><h3>Atuação Saldo</h3><p>Planilha <b>Saldo - GC</b> (aba <b>Query1</b>: Matrícula, Cliente, Sup, Status Pgto, OBS, SaldoVencidas, MinDATA_VENC, Aging, NotasVencidas, Executivo, Situação). Novas entram; quem saiu e não tem atuação é retirado; atuações nunca se perdem.</p>
       ${dropBox('upS7','📎 Anexar base de Saldo (.xlsx)','.xlsx,.xls','upSaldo7')}<p class="mat" style="margin-top:8px">${ultCarga('atuacao_saldo')}</p></div>
     <div class="card"><h3>Antecipação de Vencimento · final do mês</h3><p>Planilha com <b>Matrícula, Cliente, Carteira, Executivo, Faturamento e Vencimento</b>. Matrículas novas entram; quem já foi atuado é mantido.</p>
       ${dropBox('upAnt','📎 Anexar Antecipação de Vencimento (.xlsx)','.xlsx,.xls','upAntecipacao')}<p class="mat" style="margin-top:8px">${ultCarga('antecipacao')}</p></div>
