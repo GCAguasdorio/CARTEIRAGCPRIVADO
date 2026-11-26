@@ -355,11 +355,45 @@
 .ed-campos{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-bottom:12px}
 .ed-cp{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fbfcfe}
 .ed-cp textarea{width:100%;margin-top:8px;font-size:12.5px}
-.ed-pl input:not([type=checkbox]),.ed-pl select,.ed-cp input:not([type=checkbox]),.ed-cp select,.ed-cp textarea{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;font-size:13px;background:#fff!important;color:var(--ink);border-color:#cfd9e6!important;border-style:solid!important;border-width:1px!important}
+.ed-det .ed-nome,.ed-pl input:not([type=checkbox]),.ed-pl select,.ed-cp input:not([type=checkbox]),.ed-cp select,.ed-cp textarea{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;font-size:13px;background:#fff!important;color:var(--ink);border-color:#cfd9e6!important;border-style:solid!important;border-width:1px!important}
 .ed-tb details summary{cursor:pointer;font-size:12px;color:var(--blue);font-weight:600}
 .ed-tb details[open] summary{margin-bottom:6px}
 .ed-tb{table-layout:fixed}.ed-tb th:nth-child(1){width:34%}.ed-tb th:nth-child(2){width:20%}.ed-tb th:nth-child(4){width:70px}
 .ed-tb .est-chk{font-size:11.5px}
+
+/* editor visual das listas */
+.ed-top{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.ed-st{display:flex;gap:12px;align-items:flex-start;flex:1;min-width:300px}
+.ed-st .dot{width:12px;height:12px;border-radius:50%;background:#c3ccd8;margin-top:4px;flex:none;box-shadow:0 0 0 4px #eef2f7}
+.ed-st.on .dot{background:var(--leaf,#2e9d5b);box-shadow:0 0 0 4px #e2f4e8}
+.ed-st b{display:block;font-size:14.5px}.ed-st span{font-size:12.5px;color:var(--mute)}
+.ed-warn{color:#b26a00!important;display:inline!important;font-size:12.5px}
+.ed-acts{display:flex;gap:8px;flex-wrap:wrap}
+.ed-pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-top:14px}
+.ed-ptile{all:unset;cursor:pointer;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;box-shadow:0 1px 2px rgba(10,30,60,.04)}
+.ed-ptile b{font-size:13.5px;color:var(--ink)}.ed-ptile span{font-size:12px;color:var(--mute)}
+.ed-ptile:hover{border-color:#9fb6d3}.ed-ptile.on{border-color:var(--navy,#0b2545);box-shadow:0 0 0 2px var(--navy,#0b2545) inset;background:#f4f8fd}
+.ed-ptile.off{opacity:.5}.ed-ptile.add{border-style:dashed;background:transparent}
+.ed-det{margin-top:14px}.ed-det.off{opacity:.6}
+.ed-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);font-weight:700;margin:12px 0 6px}
+.ed-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ed-chip{display:inline-flex;align-items:center;gap:4px;background:#eaf1fb;color:#1d4b85;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600}
+.ed-chip button{all:unset;cursor:pointer;font-size:14px;line-height:1;color:#5a7aa5}
+.ed-chips.sm .ed-chip{font-size:11px;padding:2px 8px;background:#f0f4f9;color:#465a75}
+.ed-add{border:1px dashed #9fb6d3!important;border-radius:999px!important;padding:4px 10px!important;font-size:12px!important;background:#fff!important;width:auto!important}
+.ed-tlist{display:flex;flex-direction:column;gap:6px}
+.ed-t{display:grid;grid-template-columns:minmax(220px,1.2fr) auto 1.6fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;cursor:pointer}
+.ed-t:hover{border-color:#9fb6d3;background:#fafcff}.ed-t.off{opacity:.45}
+.ed-t .nm{font-weight:600;font-size:13px}.ed-go{font-size:12px;color:var(--blue);font-weight:600;white-space:nowrap}
+.ed-ef{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;white-space:nowrap;background:#eef2f7;color:#506079}
+.ed-ef.ef-acordo{background:#fff3dc;color:#9a5b00}.ed-ef.ef-pagamento{background:#e2f4e8;color:#1f7a45}.ed-ef.ef-encaminhado{background:#efe8fb;color:#5b3aa0}.ed-ef.ef-proposta{background:#fde7e7;color:#a33}
+.ed-sw{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--mute)}
+.ed-cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:14px}
+.ed-ctile{all:unset;cursor:pointer;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.ed-ctile:hover{border-color:#9fb6d3}.ed-ctile .ic{width:28px;height:28px;border-radius:8px;background:#eaf1fb;color:#1d4b85;display:grid;place-items:center;font-size:12px;font-weight:700}
+.ed-ctile b{font-size:13px;color:var(--ink)}.ed-ctile.add{border-style:dashed;background:transparent}
+.ed-uso{font-size:11px;color:#1f7a45;font-weight:600}.ed-uso.zero{color:#a0a9b6}
+@media(max-width:800px){.ed-t{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -855,7 +889,7 @@ function cardsAcoes(){
     ${card(4,'Projeção de Leitura','Ofensores negativos · vão fechar o mês abaixo do orçado · atuação preventiva',a4.length,a4.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a4.length?pct(atu(a4)/a4.length,0):'—'} atuadas${barra(atu(a4),a4.length||1,'var(--leaf)')}</span>`)}
     ${card(5,'Antecipação de Vencimento','Final do mês · o executivo confirma se dá para antecipar o vencimento para '+fdate(dataAlvo(5)).slice(0,5),a5.length,a5.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a5.length?pct(atu(a5)/a5.length,0):'—'} atuadas · ${int(a5.filter(r=>r.fatura_antecipada==='Sim').length)} antecipadas${barra(atu(a5),a5.length||1,'var(--leaf)')}</span>`)}
     ${card(6,'Base de Cobrança','Referências Outubro e Novembro · quem não pagou · mesma atuação da Ação de Cobrança',a6.length,a6.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a6.length?pct(atu(a6)/a6.length,0):'—'} atuadas${barra(atu(a6),a6.length||1,'var(--leaf)')}</span>`)}
-    ${card(7,'Atuação Saldo','Saldo vencido por aging · preenchimento guiado (plano de ação › tratativa) · atuação própria, independente das outras bases',a7.length,a7.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a7.length?pct(a7.filter(r=>st7(r)!=='Sem atuação').length/a7.length,0):'—'} atuadas${barra(a7.filter(r=>st7(r)!=='Sem atuação').length,a7.length||1,'var(--leaf)')}</span>`)}
+    ${card(7,'Atuação Saldo','Saldo vencido · atuação própria, independente das outras bases',a7.length,a7.reduce((s,r)=>s+(+r.valor||0),0),`<span class="ap">${a7.length?pct(a7.filter(r=>st7(r)!=='Sem atuação').length/a7.length,0):'—'} atuadas${barra(a7.filter(r=>st7(r)!=='Sem atuação').length,a7.length||1,'var(--leaf)')}</span>`)}
   </div>`;
 }
 function viewAcao(){
@@ -1227,7 +1261,7 @@ async function openAtuar(aid,mat){
     : lac
     ? [['Carteira',r.carteira],['Vencimento original',fdate(r.vencimento)],['Valor da fatura',money2(r.valor)],['Perfil do cliente',perfilDe(mat,r)],['Situação',r.sit_ligacao]]
     : sl7
-    ? [['Sup',r.carteira],['Pagamento',s7(r).status_pgto],['Saldo vencido',money2(r.valor)],['Notas vencidas',s7(r).notas],['Venc. mais antigo',fdate(r.vencimento)],['Aging',r.aging!=null?r.aging+' dias':null],['Obs. da base',s7(r).obs]]
+    ? [['Sup',r.carteira],['Pagamento',pgtoLbl(s7(r).status_pgto)],['Saldo vencido',money2(r.valor)],['Notas vencidas',s7(r).notas],['Venc. mais antigo',fdate(r.vencimento)],['Obs. da base',s7(r).obs]]
     : cb6
     ? [['Referência',r.base_origem],['Check · status atual',c6(r).check],['Check 2 · o executivo deverá fazer',c6(r).check2],['Vencimento',fdate(r.vencimento)],['Débito',money2(r.valor)],['Carteira',r.carteira],['Diretoria',r.regiao]]
     : cob
@@ -1257,7 +1291,7 @@ async function openAtuar(aid,mat){
     : cob&&!sl7 ? `
         <div class="fld full"><label>Status de atuação</label><select id="a_mot">${opts(L_MOTIVOS_COB,r.status_atuacao)}</select></div>
         <div class="fld"><label>Data de agendamento</label><input type="date" id="a_ag" value="${r.data_agendamento||''}"></div>`
-    : sl7 ? `${o7?`<div class="full msg info" style="margin:0">↪ Já atuada em <b>${esc(NOME_ACAO_L[o7.acao_id])}</b>: ${esc(txtOutra(o7)||o7.status)} (${fdate(o7.atualizado_em)}). Os campos abaixo vêm preenchidos com essa atuação: só salve aqui se houver novidade.</div>`:''}${esteiraForm(aid,r)}`
+    : sl7 ? (!esteiraAtiva()?'':`${o7?`<div class="full msg info" style="margin:0">↪ Já atuada em <b>${esc(NOME_ACAO_L[o7.acao_id])}</b>: ${esc(txtOutra(o7)||o7.status)} (${fdate(o7.atualizado_em)}). Os campos abaixo vêm preenchidos com essa atuação: só salve aqui se houver novidade.</div>`:''}${esteiraForm(aid,r)}`)
     : `
         <div class="fld"><label>Ação do executivo</label><select id="a_acao">${opts(L_ACAO,r.acao_executivo)}</select></div>
         <div class="fld"><label>Proposta</label><select id="a_prop">${opts(L_PROPOSTA,r.proposta)}</select></div>
@@ -1276,7 +1310,7 @@ async function openAtuar(aid,mat){
       <div class="fgrid">${campos}
         <div class="fld"><label>Status</label><select id="a_st"><option value="__auto">Automático (pela plataforma) · atual: ${esc(r.status)}</option>${STATUS.map(s=>`<option>${s[0]}</option>`).join('')}</select>
           <span class="help">Deixe em "Automático" para a plataforma definir o status pelas informações preenchidas.</span></div>
-        <div class="fld full"><label>${sl7?'Situação · contextualize o caso <span style="color:var(--rose)">*</span>':'Observação'}</label><textarea id="a_obs" rows="3" placeholder="${sl7?'Ex.: Falei com o síndico, ficou de pagar a fatura de outubro até 28/11 por PIX.':''}">${esc(r.observacao||(o7&&!r.observacao?o7.observacao||'':''))}</textarea></div>
+        <div class="fld full"><label>${sl7?(esteiraAtiva()?'Situação · contextualize o caso':'Situação · detalhe a situação da matrícula')+' <span style="color:var(--rose)">*</span>':'Observação'}</label><textarea id="a_obs" rows="3" placeholder="${sl7?'Ex.: Falei com o síndico, ficou de pagar a fatura de outubro até 28/11 por PIX.':''}">${esc(r.observacao||(o7&&!r.observacao?o7.observacao||'':''))}</textarea></div>
       </div>
       ${rec.length?`<div class="msg info">Recuperação registrada: ${rec.map(x=>`${x.status} em ${fdate(x.criado_em)}`).join(' · ')}</div>`:''}
       <h3 style="font-family:var(--font-display);font-size:14.5px;margin:6px 0 8px">Histórico</h3>
@@ -1287,7 +1321,7 @@ async function openAtuar(aid,mat){
       <button class="btn sec" onclick="closeModal()">Cancelar</button>
       <button class="btn" id="a_save" onclick="saveAtuar(${aid},${mat})">Salvar</button>
     </div></div>`);
-  if(sl7) estInit(aid,r,o7&&!r.status_atuacao?{plano_acao:o7.plano_acao,status_atuacao:o7.status_atuacao,atuacao_det:o7.atuacao_det,data_agendamento:o7.data_agendamento}:null);
+  if(sl7&&esteiraAtiva()) estInit(aid,r,o7&&!r.status_atuacao?{plano_acao:o7.plano_acao,status_atuacao:o7.status_atuacao,atuacao_det:o7.atuacao_det,data_agendamento:o7.data_agendamento}:null);
   const {data}=await sb.from('acao_historico').select('*').eq('acao_id',aid).eq('matricula',mat).order('em',{ascending:false}).limit(60);
   $('histBox') && ($('histBox').innerHTML = (data&&data.length)?data.map(h=>`<div><b>${esc(HIST_ROT[h.campo]||h.campo.replace(/_/g,' '))}</b>: ${esc(histVal(h.campo,h.de))} → <b>${esc(histVal(h.campo,h.para))}</b><br><span>${fdt(h.em)} · ${esc(h.por)}${h.origem==='plataforma'?' (automático)':''}</span></div>`).join(''):'<span class="mat">Sem alterações desde o início da plataforma — status vindo da base atual.</span>');
 }
@@ -1553,7 +1587,7 @@ function lupaDetalhe(m,hist){
       if(a.acao_id===2){ a.data_agendamento&&d.push(['Agendamento',fdate(a.data_agendamento)]); a.base_origem&&d.push(['Base',a.base_origem.trim()]); }
       if(a.acao_id===3){ a.pode_antecipar&&d.push(['Pode antecipar',a.pode_antecipar+(a.data_antecipar?' · '+fdate(a.data_antecipar):'')]); a.os&&d.push(['O.S. de faturamento',a.os]); a.fatura_antecipada&&d.push(['Fatura antecipada',a.fatura_antecipada]); a.novo_vencimento&&d.push(['Novo vencimento',fdate(a.novo_vencimento)]); }
       if(a.acao_id===6){ d.push(['Referência',a.base_origem],['Check',c6(a).check],['Check 2',c6(a).check2],...(a.status_atuacao==='A VENCER'&&a.novo_vencimento?[['A vencer em',fdate(a.novo_vencimento)]]:[]),['Débito',money2(a.valor)],['Vencimento',fdate(a.vencimento)]); a.data_agendamento&&d.push(['Agendamento',fdate(a.data_agendamento)]); return d; }
-      if(a.acao_id===7){ const x=s7(a); d.push(['Saldo vencido',money2(a.valor)],['Aging',(a.aging||0)+' dias'],['Pagamento',x.status_pgto||'—']); a.data_agendamento&&d.push(['Agendamento',fdate(a.data_agendamento)]); a.status_atuacao==='A VENCER'&&a.novo_vencimento&&d.push(['A vencer em',fdate(a.novo_vencimento)]); return d; }
+      if(a.acao_id===7){ const x=s7(a); d.push(['Saldo vencido',money2(a.valor)],['Pagamento',pgtoLbl(x.status_pgto)||'—']); a.data_agendamento&&d.push(['Agendamento',fdate(a.data_agendamento)]); a.status_atuacao==='A VENCER'&&a.novo_vencimento&&d.push(['A vencer em',fdate(a.novo_vencimento)]); return d; }
       if(a.acao_id===5){ d.push(['Faturamento',money2(a.valor)],['Vencimento',fdate(a.vencimento)]); a.fatura_antecipada&&d.push(['Pode antecipar',a.fatura_antecipada]); a.novo_vencimento&&d.push(['Novo vencimento',fdate(a.novo_vencimento)]); return d; }
       if(a.acao_id===4){ const p=proj(a); d.push(['Δ faturamento',money2(a.valor)],['Vol. previsto x orçado',`${fmtM3(p.vol_prev)} / ${fmtM3(p.vol_orc)}`]); p.status&&d.push(['Leitura',p.status]); return d; }
       a.valor!=null&&d.push([a.acao_id===3?'Valor da fatura':'Valor',money2(a.valor)]); a.vencimento&&d.push(['Vencimento',fdate(a.vencimento)]); }
@@ -2839,10 +2873,11 @@ function idxOutra(){
 }
 /* 26/11: a Atuação Saldo NÃO considera atuações de outras bases: o executivo atua nela independentemente */
 const outra7 = r => null;
-function st7(r){ if(r.status_atuacao) return r.status_atuacao; const o=outra7(r); if(!o) return 'Sem atuação';
+const pgtoLbl = v => v==='Já pagou'?'Já pagou algo':(v||'');
+function st7(r){ if(r.status_atuacao) return r.status_atuacao; if(r.observacao) return 'Com observação'; const o=outra7(r); if(!o) return 'Sem atuação';
   return o.status_atuacao; }
 const txtOutra = o => o.status_atuacao||'';
-function plano7(r){ const x=r.status_atuacao?r:outra7(r); if(!x) return 'Sem atuação'; return x.plano_acao||planoDe(x.status_atuacao)?.nome||'Sem plano definido'; }
+function plano7(r){ const x=r.status_atuacao?r:outra7(r); if(!x) return r.observacao?'Só observação':'Sem atuação'; return x.plano_acao||planoDe(x.status_atuacao)?.nome||'Sem plano definido'; }
 K_FILTROS[7]={
   com:['Com atuação',r=>st7(r)!=='Sem atuação'], sem:['Sem atuação',r=>st7(r)==='Sem atuação'],
   agend:['Pagamento agendado',r=>r.data_agendamento&&r.data_agendamento>=HOJE()],
@@ -2857,7 +2892,7 @@ function viewSaldo7(){
   const sups=[...new Set(all.map(r=>r.carteira||'-'))].sort(), agings=[...new Set(all.map(r=>r.base_origem).filter(Boolean))].sort((a,b)=>parseInt(a)-parseInt(b));
   const obs=[...new Set(all.map(r=>s7(r).obs).filter(Boolean))].sort();
   const chip=(k,v,l,n)=>`<button class="chip ${fon(k,v)?'on':''}" onclick="setF('${k}','${esc(v)}')">${esc(l)} <span class="n">${int(n)}</span></button>`;
-  return `<div class="msg info" style="margin-top:18px">Saldo vencido por <b>aging</b>. No <b>Atuar</b>, escolha o plano de ação e a tratativa: as informações que precisam ser preenchidas abrem sozinhas. <b>Atue em todas as matrículas desta base</b>, mesmo que já tenham atuação em outra ação.</div>
+  return `<div class="msg info" style="margin-top:18px">Saldo vencido. ${esteiraAtiva()?'No <b>Atuar</b>, escolha o plano de ação e a tratativa: as informações que precisam ser preenchidas abrem sozinhas.':'No <b>Atuar</b>, detalhe a situação da matrícula no campo aberto.'} <b>Atue em todas as matrículas desta base</b>, mesmo que já tenham atuação em outra ação.</div>
   <div class="kpis">
     ${kc('','hero-k',`<div class="l">Matrículas com saldo</div><div class="v">${int(all.length)}</div><div class="s">${money(val(all))} vencido</div>`)}
     ${kc('com','c3',`<div class="l">Com atuação</div><div class="v">${int(com.length)}</div><div class="s">${pct(com.length/all.length,0)} · ${money(val(com))}</div>${barra(com.length,all.length,'var(--leaf)')}`)}
@@ -2865,38 +2900,37 @@ function viewSaldo7(){
     ${kc('agend','c5',`<div class="l">Pagamento agendado</div><div class="v">${int(agend.length)}</div><div class="s">a partir de hoje · ${money(val(agend))}</div>`)}
     ${kc('nunca','c2',`<div class="l">Nunca pagou</div><div class="v">${int(nunca.length)}</div><div class="s">${money(val(nunca))}</div>`)}
   </div>
-  <div class="card" style="margin-top:18px"><h3>Plano de ação <small>clique para filtrar</small></h3>${barrasLaterais([...new Set(all.map(plano7))].map(k=>{ const x=all.filter(r=>plano7(r)===k); return [k,x.length,val(x)]; }),'pl7')}</div>
-  <div class="card" style="margin-top:18px"><h3>Tratativa / status de atuação <small>clique para filtrar</small></h3>${barrasLaterais(ks.map(k=>{ const x=all.filter(r=>st7(r)===k); return [k,x.length,val(x)]; }),'satu')}</div>
+  ${esteiraAtiva()?`<div class="card" style="margin-top:18px"><h3>Plano de ação <small>clique para filtrar</small></h3>${barrasLaterais([...new Set(all.map(plano7))].map(k=>{ const x=all.filter(r=>plano7(r)===k); return [k,x.length,val(x)]; }),'pl7')}</div>`:''}
+  <div class="card" style="margin-top:18px"><h3>${esteiraAtiva()?'Tratativa / status de atuação':'Situação das matrículas'} <small>clique para filtrar</small></h3>${barrasLaterais(ks.map(k=>{ const x=all.filter(r=>st7(r)===k); return [k,x.length,val(x)]; }),'satu')}</div>
   <div class="toolbar">
     <div class="search">${ICON_SEARCH}<input placeholder="Buscar matrícula ou cliente" value="${esc(S.f.q)}" oninput="S.f.q=this.value;refreshAcaoTable()"></div>
     <div class="chips"><span class="mat" style="font-weight:700;align-self:center">Sup:</span>${sups.map(v=>chip('cart4',v,v,all.filter(r=>(r.carteira||'-')===v).length)).join('')}</div>
   </div>
-  <div class="toolbar" style="margin-top:0"><span class="mat" style="font-weight:700">Aging:</span><div class="chips">${agings.map(v=>chip('base',v,v,all.filter(r=>r.base_origem===v).length)).join('')}</div></div>
-  <div class="toolbar" style="margin-top:0"><span class="mat" style="font-weight:700">Pagamento:</span><div class="chips">${['Já pagou','Nunca pagou'].map(v=>chip('sp4',v,v,all.filter(r=>s7(r).status_pgto===v).length)).join('')}</div>
+  <div class="toolbar" style="margin-top:0"><span class="mat" style="font-weight:700">Pagamento:</span><div class="chips">${['Já pagou','Nunca pagou'].map(v=>chip('sp4',v,pgtoLbl(v),all.filter(r=>s7(r).status_pgto===v).length)).join('')}</div>
     ${obs.length?`<span class="mat" style="font-weight:700;margin-left:8px">Obs. da base:</span><div class="chips">${obs.map(v=>chip('o7',v,v,all.filter(r=>s7(r).obs===v).length)).join('')}</div>`:''}</div>
   ${kAviso()}<div id="acaoTb">${sal7Table(rows)}</div>`;
 }
 function sal7Table(rows){
   if(!rows.length) return `<div class="card empty"><b>Nenhuma matrícula encontrada</b>Ajuste os filtros acima.</div>`;
   const ge=verExec(), lim=S.lim7||150;
-  return `<div class="scroll"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Sup</th><th>Pagamento</th><th class="r">Saldo vencido</th><th class="r">Notas</th><th>Venc. mais antigo</th><th>Aging</th><th>Status de atuação</th><th>Agendamento</th><th>Observação</th><th>Outras ações</th></tr></thead><tbody>
+  return `<div class="scroll"><table class="fix"><thead><tr><th>Cliente / matrícula</th>${ge?'<th>Executivo</th>':''}<th>Sup</th><th>Pagamento</th><th class="r">Saldo vencido</th><th class="r">Notas</th><th>Venc. mais antigo</th><th>Status de atuação</th><th>Agendamento</th><th>Observação</th><th>Outras ações</th></tr></thead><tbody>
     ${rows.slice(0,lim).map(r=>{ const o=outra7(r), x=s7(r), av=r.status_atuacao==='A VENCER'; return `<tr><td><div class="fc"><div class="fci"><span class="cli" title="${esc(r.cliente)}">${esc(r.cliente)}</span><span class="mat">${r.matricula}${x.obs?' · '+esc(x.obs):''}${x.fora_base?' · <span class="sit-c">saiu da base (mantida pela atuação)</span>':''}</span></div><button class="btn sm ${o?'sec':''}" onclick="openAtuar(7,${r.matricula})">${o?'Atualizar':'Atuar'}</button></div></td>${ge?`<td>${r.executivo?pessoa(r.executivo):'<span class="mat">—</span>'}${tagFerias(r.executivo)}</td>`:''}
-      <td>${esc(r.carteira||'—')}</td><td>${x.status_pgto==='Nunca pagou'?'<span class="pill st-4">Nunca pagou</span>':esc(x.status_pgto||'—')}</td>
-      <td class="r num">${money2(r.valor)}</td><td class="r">${int(x.notas||0)}</td><td>${fdate(r.vencimento)}</td><td>${int(r.aging||0)} dias</td>
+      <td>${esc(r.carteira||'—')}</td><td>${x.status_pgto==='Nunca pagou'?'<span class="pill st-4">Nunca pagou</span>':esc(pgtoLbl(x.status_pgto)||'—')}</td>
+      <td class="r num">${money2(r.valor)}</td><td class="r">${int(x.notas||0)}</td><td>${fdate(r.vencimento)}</td>
       <td class="wrap-c">${r.status_atuacao?`${stCob(r)}${av&&r.novo_vencimento?`<br><span class="mat">vence ${fdate(r.novo_vencimento)}</span><br>${vencTag(r.novo_vencimento)}`:''}`
         : o?`<span class="xb xb${o.acao_id}" title="${esc([txtOutra(o),o.observacao].filter(Boolean).join(' · '))}">↪ ${esc(NOME_ACAO[o.acao_id])}</span><br>${stCob(o)}<br><span class="mat">${fdate(o.atualizado_em)}${o.data_agendamento?' · agendado '+fdate(o.data_agendamento):''}</span>`
-        : '<span class="pill st-0">Sem atuação</span>'}${r.status!=='Não iniciado'&&r.status!=='Em atuação'?`<br>${stPill(r.status)}`:''}</td>
+        : r.observacao?'<span class="pill st-5">Com observação</span>':'<span class="pill st-0">Sem atuação</span>'}${r.status!=='Não iniciado'&&r.status!=='Em atuação'?`<br>${stPill(r.status)}`:''}</td>
       <td>${fdate(r.data_agendamento||(o&&o.data_agendamento))}</td><td class="wrap-c obs-td">${r.observacao?obsCell(r):o&&o.observacao?obsCell(o):'<span class="mat">—</span>'}</td><td class="wrap-c">${outrasBases(r.matricula,7)}</td></tr>`; }).join('')}
   </tbody></table></div>
   ${rows.length>lim?`<div class="more"><button class="btn sec sm" onclick="S.lim7=(S.lim7||150)+500;refreshAcaoTable()">Mostrar mais (${int(rows.length-lim)} restantes)</button></div>`:''}
   <p class="mat" style="margin-top:8px">${int(rows.length)} matrícula(s) · ${money2(rows.reduce((s,r)=>s+(+r.valor||0),0))}</p>`;
 }
 function exportSaldo7(rows){
-  return rows.map(r=>{ const o=outra7(r), x=s7(r); return {Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Sup:r.carteira,'Status pagamento':x.status_pgto||'','Obs. da base':x.obs||'',
-    'Saldo vencido':+r.valor||0,'Notas vencidas':x.notas||0,'Venc. mais antigo':r.vencimento?fdate(r.vencimento):'',Aging:r.aging,
+  return rows.map(r=>{ const o=outra7(r), x=s7(r); return {Matrícula:r.matricula,Cliente:r.cliente,Executivo:r.executivo,Sup:r.carteira,'Status pagamento':pgtoLbl(x.status_pgto),'Obs. da base':x.obs||'',
+    'Saldo vencido':+r.valor||0,'Notas vencidas':x.notas||0,'Venc. mais antigo':r.vencimento?fdate(r.vencimento):'',
     'Status de atuação':st7(r),
     'Data agendamento':(r.data_agendamento||(o&&o.data_agendamento))?fdate(r.data_agendamento||o.data_agendamento):'',
-    Observação:r.observacao||(o&&o.observacao)||'',Status:r.status,'Atuação em outras ações':outrasBases(r.matricula,7).replace(/<[^>]+>/g,'').replace(/\s+/g,' ').replace(/^—$/,'').trim(),'Atualizado em':r.atualizado_em?fdt(r.atualizado_em):'',...exportEsteira(r.status_atuacao?r:(o||r))}; });
+    Observação:r.observacao||(o&&o.observacao)||'',Status:r.status,'Atuação em outras ações':outrasBases(r.matricula,7).replace(/<[^>]+>/g,'').replace(/\s+/g,' ').replace(/^—$/,'').trim(),'Atualizado em':r.atualizado_em?fdt(r.atualizado_em):'',...(esteiraAtiva()?exportEsteira(r.status_atuacao?r:(o||r)):{})}; });
 }
 
 /* ---------- upload da base (Gestão › Cargas) ---------- */
@@ -3091,15 +3125,21 @@ const COB_PADRAO = () => { _tid=0; return {
     {id:'impedimento',nome:'Impedimento',campos:[],trat:[tr('Local fechado/abandonado/consumo final'), tr('Cliente cortado')]},
     {id:'outros',nome:'Outros',campos:['descricao_plano','responsavel'],trat:[tr('Outra atuação')]}]
 }; };
-S.cobCfg=COB_PADRAO();
-async function loadCobCfg(){ try{ const {data}=await sb.from('config_listas').select('valor').eq('chave','cobranca').maybeSingle(); if(data&&data.valor&&data.valor.planos) S.cobCfg=data.valor; }catch(_){} }
-const campoDef = id => (S.cobCfg.campos||[]).find(c=>c.id===id);
-const planosAtivos = aid => (S.cobCfg.planos||[]).filter(p=>!p.inativo&&tratsDe(p,aid).length);
+S.cobCfg=COB_PADRAO(); S.cobDraft=null; S.cobPub=null; S.cobPrev=null;
+/* rascunho (gestão edita) × espelhado (o que os executivos usam). Sem espelhado = só o campo aberto. */
+async function loadCobCfg(){ try{ const {data}=await sb.from('config_listas').select('*').in('chave',['cobranca','cobranca_pub']);
+    const d=(data||[]).find(x=>x.chave==='cobranca'), p=(data||[]).find(x=>x.chave==='cobranca_pub');
+    S.cobPub=p&&p.valor&&p.valor.planos?p:null; S.cobDraft=d&&d.valor&&d.valor.planos?d.valor:(S.cobPub?JSON.parse(JSON.stringify(S.cobPub.valor)):COB_PADRAO());
+    S.cobDraftInfo=d||null; S.cobCfg=S.cobPub?S.cobPub.valor:S.cobDraft; }catch(_){} }
+const CFG = () => S.cobPrev||S.cobCfg;
+const esteiraAtiva = () => !!S.cobPub || !!S.cobPrev;
+const campoDef = id => (CFG().campos||[]).find(c=>c.id===id);
+const planosAtivos = aid => (CFG().planos||[]).filter(p=>!p.inativo&&tratsDe(p,aid).length);
 const tratsDe = (p,aid) => (p.trat||[]).filter(t=>!t.inativo&&(!t.so||!t.so.length||t.so.includes(aid))&&!(aid===7&&t.nome==='A VENCER'));
 function tratCob(aid){ return [...new Set(planosAtivos(aid).flatMap(p=>tratsDe(p,aid).map(t=>t.nome)))]; }
 /* plano de uma tratativa (para atuações antigas sem plano gravado) */
-function planoDe(st){ if(!st) return null; for(const p of S.cobCfg.planos||[]) if((p.trat||[]).some(t=>t.nome===st)) return p; return null; }
-function tratDef(st,pl){ const ps=S.cobCfg.planos||[]; const p0=pl&&ps.find(p=>p.nome===pl); const t0=p0&&(p0.trat||[]).find(t=>t.nome===st); if(t0) return t0; for(const p of ps){ const t=(p.trat||[]).find(t=>t.nome===st); if(t) return t; } return null; }
+function planoDe(st){ if(!st) return null; for(const p of CFG().planos||[]) if((p.trat||[]).some(t=>t.nome===st)) return p; return null; }
+function tratDef(st,pl){ const ps=CFG().planos||[]; const p0=pl&&ps.find(p=>p.nome===pl); const t0=p0&&(p0.trat||[]).find(t=>t.nome===st); if(t0) return t0; for(const p of ps){ const t=(p.trat||[]).find(t=>t.nome===st); if(t) return t; } return null; }
 const efeitoCob = (st,pl) => tratDef(st,pl)?.ef;
 
 /* ---------- formulário guiado (dentro do Atuar) ---------- */
@@ -3113,7 +3153,7 @@ function esteiraForm(aid,r,pre){
 let _estPre=null;
 function estInit(aid,r,pre){ _estPre={aid,v:pre||r,det:{...((pre||r).atuacao_det||{})}}; estTrat(aid,true); }
 function estTrat(aid,init){
-  const pn=$('e_pl').value, p=(S.cobCfg.planos||[]).find(x=>x.nome===pn), w=$('e_trW');
+  const pn=$('e_pl').value, p=(CFG().planos||[]).find(x=>x.nome===pn), w=$('e_trW');
   if(!p){ w.innerHTML=''; $('e_cpW').innerHTML=''; return; }
   const v=_estPre?.v||{}, cur=init?v.status_atuacao:'', ts=tratsDe(p,aid), outro=init&&cur==='Outro';
   w.innerHTML=`<div class="est-h"><span>2</span> Tratativa</div>
@@ -3131,7 +3171,7 @@ function campoHTML(c,val,obrig){
   return `<div class="fld"><label>${esc(c.rotulo)}${req}</label><input id="${id}" value="${esc(val||'')}"></div>`;
 }
 function camposAtivos(aid){
-  const p=(S.cobCfg.planos||[]).find(x=>x.nome===$('e_pl')?.value); if(!p) return [];
+  const p=(CFG().planos||[]).find(x=>x.nome===$('e_pl')?.value); if(!p) return [];
   const tn=$('e_tr')?.value, t=(p.trat||[]).find(x=>x.nome===tn);
   const ids=[...new Set([...(p.campos||[]),...((t&&t.campos)||[])])];
   return ids.map(campoDef).filter(Boolean).filter(c=>!(c.id==='vencimento'&&aid!==6));
@@ -3140,7 +3180,7 @@ function estCampos(aid,init){
   const tr=$('e_tr'); if(!tr) return; $('e_trO').style.display=tr.value==='Outro'?'':'none';
   const p=$('e_pl').value, w=$('e_cpW'), v=_estPre?.v||{}, det={..._estPre.det};
   // valores já digitados nesta tela não se perdem ao trocar a tratativa
-  if(!init) for(const c of S.cobCfg.campos||[]){ const x=lerCampo(c); if(x!==undefined&&x!=='') det[c.id]=x; }
+  if(!init) for(const c of CFG().campos||[]){ const x=lerCampo(c); if(x!==undefined&&x!=='') det[c.id]=x; }
   _estPre.det=det;
   if(!tr.value){ w.innerHTML=''; return; }
   const cs=camposAtivos(aid);
@@ -3155,7 +3195,9 @@ function lerCampo(c){ const e=$('ec_'+c.id); if(!e) return undefined;
   return (e.value||'').trim(); }
 /* valida e devolve {upd} ou {erro} */
 function esteiraLer(aid){
-  const pl=$('e_pl').value, tr=$('e_tr')?.value, obs=($('a_obs').value||'').trim();
+  const obs=($('a_obs').value||'').trim();
+  if(!esteiraAtiva()){ if(!obs) return {erro:'Detalhe a situação da matrícula.',el:'a_obs'}; return {upd:{observacao:obs}}; }
+  const pl=$('e_pl').value, tr=$('e_tr')?.value;
   if(!pl) return {erro:'Escolha o plano de ação.',el:'e_pl'};
   if(!tr) return {erro:'Escolha a tratativa.',el:'e_tr'};
   const det={};
@@ -3187,70 +3229,125 @@ function stCob(r){
     +(det.length?`<br><span class="mat" title="${esc(det.map(x=>x.join(': ')).join(' · '))}">${esc(det.slice(0,3).map(x=>x[1]).join(' · '))}${det.length>3?' …':''}</span>`:'');
 }
 function exportEsteira(r){ const o={'Plano de ação':r.plano_acao||planoDe(r.status_atuacao)?.nome||'','Tratativa':r.status_atuacao==='Outro'?'Outro: '+(r.atuacao_det?.tratativa_outro||''):(r.status_atuacao||''),'Prazo do cliente':r.atuacao_det?.prazo_cliente?fdate(r.atuacao_det.prazo_cliente):''};
-  for(const c of S.cobCfg.campos||[]){ if(c.id==='agendamento'||c.id==='vencimento') continue; const v=r.atuacao_det?.[c.id]; o[c.rotulo]=v==null?'':c.tipo==='data'?fdate(v):v; }
+  for(const c of CFG().campos||[]){ if(c.id==='agendamento'||c.id==='vencimento') continue; const v=r.atuacao_det?.[c.id]; o[c.rotulo]=v==null?'':c.tipo==='data'?fdate(v):v; }
   return o; }
 
 /* ---------- GESTÃO · editor das listas ---------- */
 let ED=null;
 function listasHTML(){
-  ED=ED||JSON.parse(JSON.stringify(S.cobCfg));
-  const cs=ED.campos||[];
-  const chk=(sel,ids,pi,ti)=>`<div class="est-chk">${cs.filter(c=>!(c.id==='vencimento')).map(c=>`<label><input type="checkbox" ${ids.includes(c.id)?'checked':''} onchange="edCampoTog(${pi},${ti},'${c.id}',this.checked)"> ${esc(c.rotulo)}</label>`).join('')}</div>`;
-  return `<div class="card"><div style="display:flex;gap:16px;justify-content:space-between;flex-wrap:wrap;align-items:flex-start">
-      <div style="flex:1;min-width:300px"><h3 style="margin:0 0 4px">Esteira de atuação · Cobrança</h3><p class="mat" style="margin:0">Por enquanto vale só para a <b>Atuação Saldo</b> (depois de alinhada, passa para Ação de Cobrança e Base de Cobrança). O executivo escolhe o <b>Plano de ação</b>, depois a <b>Tratativa</b>, e abrem só as caixinhas marcadas aqui. Toda lista ganha a opção "Outro (descrever)" sozinha.</p></div>
-      <div style="display:flex;gap:8px"><button class="btn sec" onclick="edPadrao()">Restaurar padrão</button><button class="btn" onclick="edSalvar()">Salvar alterações</button></div></div></div>
-  <div class="card" style="margin-top:14px"><h3>Planos de ação e tratativas</h3>
-    ${ED.planos.map((p,pi)=>`<div class="ed-pl ${p.inativo?'ed-off':''}">
-      <div class="ed-row"><input class="ed-nome" value="${esc(p.nome)}" onchange="ED.planos[${pi}].nome=this.value.trim()">
-        <label class="mat"><input type="checkbox" ${p.inativo?'':'checked'} onchange="ED.planos[${pi}].inativo=!this.checked;edRender()"> ativo</label>
-        <button class="btn sm sec" onclick="edMover(${pi},-1)" title="Subir">↑</button><button class="btn sm sec" onclick="edMover(${pi},1)" title="Descer">↓</button></div>
-      <div class="mat" style="margin:6px 0 2px">Caixinhas que abrem em <b>todas</b> as tratativas deste plano:</div>${chk('p',p.campos||[],pi,-1)}
-      <table class="ed-tb"><thead><tr><th>Tratativa</th><th>Conta como</th><th>Caixinhas a mais</th><th></th></tr></thead><tbody>
-      ${(p.trat||[]).map((t,ti)=>`<tr class="${t.inativo?'ed-off':''}"><td><input value="${esc(t.nome)}" ${t.nome==='A VENCER'?'disabled title="Usada na regra de vencimento da Base de Cobrança"':''} onchange="ED.planos[${pi}].trat[${ti}].nome=this.value.trim()">${t.so&&t.so.length?'<span class="mat" style="display:block;margin-top:3px">só na Base de Cobrança</span>':''}</td>
-        <td><select onchange="ED.planos[${pi}].trat[${ti}].ef=this.value">${EF_OPTS.map(([v,l])=>`<option value="${v}" ${(t.ef||'')===v?'selected':''}>${l}</option>`).join('')}</select></td>
-        <td><details><summary>${(t.campos||[]).length?esc((t.campos||[]).map(id=>campoDef(id)?.rotulo||(ED.campos.find(c=>c.id===id)||{}).rotulo||id).join(' · ')):'nenhuma · escolher'}</summary>${chk('t',t.campos||[],pi,ti)}</details></td>
-        <td><label class="mat"><input type="checkbox" ${t.inativo?'':'checked'} onchange="ED.planos[${pi}].trat[${ti}].inativo=!this.checked;edRender()"> ativa</label></td></tr>`).join('')}
-      </tbody></table>
-      <button class="btn sm sec" onclick="edNovaTrat(${pi})">+ Tratativa</button></div>`).join('')}
-    <button class="btn sec" onclick="edNovoPlano()">+ Plano de ação</button></div>
-  <div class="card" style="margin-top:14px"><h3>Caixinhas e opções das listas</h3><p class="mat">Uma opção por linha. Para tirar uma opção, apague a linha (atuações antigas continuam com o que foi gravado).</p>
-    <div class="ed-campos">${cs.map((c,ci)=>`<div class="ed-cp"><div class="ed-row"><input class="ed-nome" value="${esc(c.rotulo)}" onchange="ED.campos[${ci}].rotulo=this.value.trim()">
-      <select ${c.fixo?'disabled':''} onchange="ED.campos[${ci}].tipo=this.value;edRender()">${TIPOS_CAMPO.map(([v,l])=>`<option value="${v}" ${c.tipo===v?'selected':''}>${l}</option>`).join('')}</select>
-      <label class="mat"><input type="checkbox" ${c.obrig?'checked':''} ${c.fixo?'disabled':''} onchange="ED.campos[${ci}].obrig=this.checked"> obrigatória</label></div>
-      ${c.fixo?`<p class="mat" style="margin:4px 0 0">${c.id==='agendamento'?'Grava na Data de agendamento (gráficos de pagamento agendado).':'Grava a data de vencimento do A VENCER.'}</p>`:''}
-      ${c.tipo==='lista'?`<textarea rows="${Math.min(8,(c.opcoes||[]).length+1)}" onchange="ED.campos[${ci}].opcoes=this.value.split('\\n').map(s=>s.trim()).filter(Boolean)">${esc((c.opcoes||[]).join('\n'))}</textarea>`:''}</div>`).join('')}</div>
-    <button class="btn sec" onclick="edNovoCampo()">+ Nova caixinha</button></div>`;
+  ED=ED||JSON.parse(JSON.stringify(S.cobDraft||S.cobCfg)); S.edTab=S.edTab||'planos'; if(S.edPl==null||S.edPl>=ED.planos.length) S.edPl=0;
+  const pub=S.cobPub, mudou=!pub||JSON.stringify(ED)!==JSON.stringify(pub.valor);
+  const usoCampo=id=>ED.planos.reduce((n,p)=>n+((p.campos||[]).includes(id)?1:0)+(p.trat||[]).filter(t=>(t.campos||[]).includes(id)).length,0);
+  const top=`<div class="card ed-top">
+    <div class="ed-st ${pub?'on':''}"><span class="dot"></span><div><b>${pub?'Lista espelhada para os executivos':'Lista ainda não espelhada'}</b>
+      <span>${pub?`desde ${fdt(pub.atualizado_em)}${pub.atualizado_por?' · '+esc(nomeDeEmail?nomeDeEmail(pub.atualizado_por,''):pub.atualizado_por):''}${mudou?' · <b class="ed-warn">há alterações não espelhadas</b>':''}`:'Na Atuação Saldo os executivos veem só o campo aberto "Situação". Monte a lista aqui e espelhe quando estiver pronta.'}</span></div></div>
+    <div class="ed-acts"><button class="btn sec" onclick="edPrevia()">👁 Pré-visualizar</button><button class="btn sec" onclick="edSalvar()">Salvar rascunho</button><button class="btn" onclick="edEspelhar()">⇉ Espelhar para os executivos</button><button class="btn sm sec" onclick="edPadrao()" title="Volta a lista para o modelo inicial">↺ Padrão</button>${pub?`<button class="btn sec" onclick="edRecolher()" title="Volta a mostrar só o campo aberto">Voltar ao campo aberto</button>`:''}</div></div>
+  <div class="subtabs" style="margin-top:14px">${[['planos','Planos e tratativas'],['caixinhas','Caixinhas e opções']].map(([k,l])=>`<button class="${S.edTab===k?'on':''}" onclick="S.edTab='${k}';edRender()">${l}</button>`).join('')}</div>`;
+  if(S.edTab==='caixinhas') return top+`<div class="ed-cgrid">${ED.campos.map((c,ci)=>{ const u=usoCampo(c.id); return `<button class="ed-ctile" onclick="edCampo(${ci})"><span class="ic">${{lista:'☰',texto:'✎',data:'📅',valor:'R$',simnao:'✓✗'}[c.tipo]||'•'}</span><b>${esc(c.rotulo)}</b>
+      <span class="mat">${TIPOS_CAMPO.find(t=>t[0]===c.tipo)?.[1]||c.tipo}${c.tipo==='lista'?` · ${(c.opcoes||[]).length} opções`:''}${c.obrig?' · obrigatória':''}</span><span class="ed-uso ${u?'':'zero'}">${u?`usada em ${u}`:'não usada'}</span></button>`; }).join('')}
+      <button class="ed-ctile add" onclick="edNovoCampo()"><span class="ic">+</span><b>Nova caixinha</b></button></div>`;
+  const p=ED.planos[S.edPl], pi=S.edPl, chipC=(id,acao)=>{ const c=ED.campos.find(x=>x.id===id); return c?`<span class="ed-chip">${esc(c.rotulo)}${acao?`<button onclick="${acao}" title="Tirar">×</button>`:''}</span>`:''; };
+  const disp=ED.campos.filter(c=>c.id!=='vencimento'&&!(p.campos||[]).includes(c.id));
+  return top+`<div class="ed-pgrid">${ED.planos.map((x,k)=>`<button class="ed-ptile ${k===pi?'on':''} ${x.inativo?'off':''}" onclick="S.edPl=${k};edRender()"><b>${esc(x.nome)}</b><span>${(x.trat||[]).filter(t=>!t.inativo).length} tratativas${x.inativo?' · inativo':''}</span></button>`).join('')}
+      <button class="ed-ptile add" onclick="edNovoPlano()"><b>+ Plano de ação</b><span>novo grupo</span></button></div>
+    <div class="card ed-det ${p.inativo?'off':''}">
+      <div class="ed-row"><input class="ed-nome" value="${esc(p.nome)}" onchange="ED.planos[${pi}].nome=this.value.trim();edRender()">
+        <label class="ed-sw"><input type="checkbox" ${p.inativo?'':'checked'} onchange="ED.planos[${pi}].inativo=!this.checked;edRender()"> ativo</label>
+        <button class="btn sm sec" onclick="edMover(${pi},-1)" title="Mover para a esquerda">←</button><button class="btn sm sec" onclick="edMover(${pi},1)" title="Mover para a direita">→</button></div>
+      <div class="ed-lbl">Caixinhas que abrem em todas as tratativas deste plano</div>
+      <div class="ed-chips">${(p.campos||[]).map(id=>chipC(id,`edTirar(${pi},'${id}')`)).join('')||'<span class="mat">nenhuma</span>'}
+        <select class="ed-add" onchange="if(this.value){edPor(${pi},this.value)}"><option value="">+ caixinha</option>${disp.map(c=>`<option value="${c.id}">${esc(c.rotulo)}</option>`).join('')}</select></div>
+      <div class="ed-lbl" style="margin-top:14px">Tratativas</div>
+      <div class="ed-tlist">${(p.trat||[]).map((t,ti)=>`<div class="ed-t ${t.inativo?'off':''}" onclick="edTrat(${pi},${ti})">
+          <div class="nm">${esc(t.nome)}${t.so&&t.so.length?' <span class="mat">· só Base de Cobrança</span>':''}</div>
+          <span class="ed-ef ef-${(t.ef||'em').split(' ')[0].toLowerCase()}">${esc(t.ef||'Em atuação')}</span>
+          <div class="ed-chips sm">${(t.campos||[]).map(id=>chipC(id)).join('')}</div><span class="ed-go">editar ›</span></div>`).join('')}</div>
+      <button class="btn sm sec" style="margin-top:10px" onclick="edNovaTrat(${pi})">+ Tratativa</button></div>`;
 }
 function edRender(){ const y=scrollY; render(); scrollTo(0,y); }
-function edCampoTog(pi,ti,id,on){ const o=ti<0?ED.planos[pi]:ED.planos[pi].trat[ti]; o.campos=o.campos||[]; o.campos=on?[...new Set([...o.campos,id])]:o.campos.filter(x=>x!==id); }
-function edMover(pi,d){ const j=pi+d; if(j<0||j>=ED.planos.length) return; [ED.planos[pi],ED.planos[j]]=[ED.planos[j],ED.planos[pi]]; edRender(); }
+function edTirar(pi,id){ ED.planos[pi].campos=(ED.planos[pi].campos||[]).filter(x=>x!==id); edRender(); }
+function edPor(pi,id){ ED.planos[pi].campos=[...new Set([...(ED.planos[pi].campos||[]),id])]; edRender(); }
+function edMover(pi,d){ const j=pi+d; if(j<0||j>=ED.planos.length) return; [ED.planos[pi],ED.planos[j]]=[ED.planos[j],ED.planos[pi]]; S.edPl=j; edRender(); }
 const novoId = p => p+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-function edNovaTrat(pi){ const n=prompt('Nome da nova tratativa:'); if(!n||!n.trim()) return; ED.planos[pi].trat.push({id:novoId('t'),nome:n.trim(),campos:[]}); edRender(); }
-function edNovoPlano(){ const n=prompt('Nome do novo plano de ação:'); if(!n||!n.trim()) return; ED.planos.push({id:novoId('p'),nome:n.trim(),campos:[],trat:[]}); edRender(); }
-function edNovoCampo(){ const n=prompt('Nome da nova caixinha (ex.: Nº de parcelas):'); if(!n||!n.trim()) return; ED.campos.push({id:novoId('c'),rotulo:n.trim(),tipo:'lista',opcoes:[]}); edRender(); }
-function edPadrao(){ if(!confirm('Voltar as listas para o padrão inicial? (só vale depois de salvar)')) return; ED=COB_PADRAO(); edRender(); }
-async function edSalvar(){
-  // validações
-  const nomes=ED.planos.flatMap(p=>p.trat.map(t=>t.nome));
-  if(ED.planos.some(p=>!p.nome)||nomes.some(n=>!n)) return toast('Há plano ou tratativa sem nome.',true);
-  const pn=ED.planos.map(p=>p.nome), dpl=pn.find((n,i)=>pn.indexOf(n)!==i); if(dpl) return toast(`O plano "${dpl}" aparece duas vezes.`,true);
-  for(const p of ED.planos){ const ns=p.trat.map(t=>t.nome), d=ns.find((n,i)=>ns.indexOf(n)!==i); if(d) return toast(`A tratativa "${d}" aparece duas vezes em ${p.nome}.`,true); }
-  if(nomes.includes('Outro')) return toast('"Outro" já existe automaticamente; use outro nome.',true);
-  if(ED.campos.some(c=>!c.rotulo)) return toast('Há caixinha sem nome.',true);
-  // renomeações: atualiza as atuações já gravadas com o nome antigo
-  const antes=new Map((S.cobCfg.planos||[]).flatMap(p=>(p.trat||[]).map(t=>[p.id+'|'+t.id,[t.nome,p.nome]]))), ren=[];
-  ED.planos.forEach(p=>p.trat.forEach(t=>{ const a=antes.get(p.id+'|'+t.id); if(a&&a[0]!==t.nome) ren.push([a[0],t.nome,a[1]]); }));
-  const linhasDe=(a,pl)=>S.acao.filter(r=>ACOES_ESTEIRA.includes(r.acao_id)&&r.status_atuacao===a&&(r.plano_acao?r.plano_acao===pl:planoDe(a)?.nome===pl));
-  const plAntes=new Map((S.cobCfg.planos||[]).map(p=>[p.id,p.nome])), renP=ED.planos.filter(p=>plAntes.get(p.id)&&plAntes.get(p.id)!==p.nome).map(p=>[plAntes.get(p.id),p.nome]);
-  const usos=ren.map(([a,n,pl])=>[a,n,linhasDe(a,pl).length]).filter(x=>x[2]);
-  if(usos.length&&!confirm(`Tratativas renomeadas que já têm atuação:\n${usos.map(([a,n,q])=>`• "${a}" → "${n}" (${q})`).join('\n')}\n\nAs atuações antigas passam a usar o nome novo. Continuar?`)) return;
-  const {error}=await sb.from('config_listas').upsert({chave:'cobranca',valor:ED,atualizado_em:new Date().toISOString(),atualizado_por:S.me.email},{onConflict:'chave'});
-  if(error) return toast(error.message,true);
-  for(const [a,n,pl] of ren){ const ms=linhasDe(a,pl).map(r=>r.matricula); for(let i=0;i<ms.length;i+=200){ const r=await sb.from('acao_base').update({status_atuacao:n,plano_acao:pl,atualizado_por:'plataforma'}).in('acao_id',ACOES_ESTEIRA).eq('status_atuacao',a).in('matricula',ms.slice(i,i+200)); if(r.error) toast(r.error.message,true); } }
-  for(const [a,n] of renP){ await sb.from('acao_base').update({plano_acao:n,atualizado_por:'plataforma'}).in('acao_id',ACOES_ESTEIRA).eq('plano_acao',a); }
-  S.cobCfg=JSON.parse(JSON.stringify(ED)); ED=null; toast('Listas salvas · já valem para todos');
-  if(ren.length||renP.length) await reload('acao'); render();
+function edNovoPlano(){ const n=prompt('Nome do novo plano de ação:'); if(!n||!n.trim()) return; ED.planos.push({id:novoId('p'),nome:n.trim(),campos:[],trat:[]}); S.edPl=ED.planos.length-1; edRender(); }
+function edNovaTrat(pi){ ED.planos[pi].trat.push({id:novoId('t'),nome:'',campos:[]}); edTrat(pi,ED.planos[pi].trat.length-1,true); }
+function edNovoCampo(){ ED.campos.push({id:novoId('c'),rotulo:'',tipo:'lista',opcoes:[]}); edCampo(ED.campos.length-1,true); }
+function edTrat(pi,ti,novo){
+  const t=ED.planos[pi].trat[ti], pc=ED.planos[pi].campos||[];
+  modal(`<div class="modal sm"><div class="mh"><div><h3>${novo?'Nova tratativa':'Tratativa'}</h3><p>${esc(ED.planos[pi].nome)}</p></div><button class="x" onclick="edTratFechar(${pi},${ti},${!!novo})">×</button></div>
+  <div class="mb"><div class="fgrid">
+    <div class="fld full"><label>Nome da tratativa</label><input id="et_n" value="${esc(t.nome)}" ${t.nome==='A VENCER'?'disabled':''}></div>
+    <div class="fld"><label>Conta como (status geral)</label><select id="et_ef">${EF_OPTS.map(([v,l])=>`<option value="${v}" ${(t.ef||'')===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="fld"><label>Situação</label><select id="et_at"><option value="1">Ativa</option><option value="0" ${t.inativo?'selected':''}>Inativa (não aparece mais)</option></select></div>
+    <div class="fld full"><label>Caixinhas a mais nesta tratativa</label><div class="est-chk">${ED.campos.filter(c=>c.id!=='vencimento'&&!pc.includes(c.id)).map(c=>`<label><input type="checkbox" class="et_c" value="${c.id}" ${(t.campos||[]).includes(c.id)?'checked':''}> ${esc(c.rotulo)}</label>`).join('')}</div>
+      ${pc.length?`<span class="help">Já abrem pelo plano: ${pc.map(id=>esc(ED.campos.find(c=>c.id===id)?.rotulo||id)).join(', ')}.</span>`:''}</div></div></div>
+  <div class="mf">${novo?'':`<button class="btn bad" style="margin-right:auto" onclick="edTratExcluir(${pi},${ti})">Excluir</button>`}<button class="btn sec" onclick="edTratFechar(${pi},${ti},${!!novo})">Cancelar</button><button class="btn" onclick="edTratOk(${pi},${ti})">OK</button></div></div>`);
 }
+function edTratFechar(pi,ti,novo){ if(novo&&!ED.planos[pi].trat[ti].nome) ED.planos[pi].trat.splice(ti,1); closeModal(); edRender(); }
+function edTratOk(pi,ti){ const t=ED.planos[pi].trat[ti], n=$('et_n').value.trim(); if(!n) return toast('Dê um nome à tratativa.',true);
+  if(ED.planos[pi].trat.some((x,k)=>k!==ti&&x.nome===n)) return toast('Já existe essa tratativa neste plano.',true);
+  t.nome=n; t.ef=$('et_ef').value||undefined; t.inativo=$('et_at').value==='0'||undefined; t.campos=[...document.querySelectorAll('.et_c:checked')].map(x=>x.value); closeModal(); edRender(); }
+function edTratExcluir(pi,ti){ const t=ED.planos[pi].trat[ti], uso=S.acao.filter(r=>ACOES_ESTEIRA.includes(r.acao_id)&&r.status_atuacao===t.nome).length;
+  if(uso){ if(!confirm(`"${t.nome}" já tem ${uso} atuação(ões). Ela será só desativada (as atuações antigas continuam aparecendo). Ok?`)) return; t.inativo=true; }
+  else { if(!confirm(`Excluir a tratativa "${t.nome}"?`)) return; ED.planos[pi].trat.splice(ti,1); }
+  closeModal(); edRender(); }
+function edCampo(ci,novo){
+  const c=ED.campos[ci];
+  modal(`<div class="modal sm"><div class="mh"><div><h3>${novo?'Nova caixinha':'Caixinha'}</h3><p>Campo que abre no Atuar</p></div><button class="x" onclick="edCampoFechar(${ci},${!!novo})">×</button></div>
+  <div class="mb"><div class="fgrid">
+    <div class="fld full"><label>Nome da caixinha</label><input id="ec_r" value="${esc(c.rotulo)}" placeholder="Ex.: Nº de parcelas"></div>
+    <div class="fld"><label>Tipo</label><select id="ec_t" ${c.fixo?'disabled':''} onchange="$('ec_oW').style.display=this.value==='lista'?'':'none'">${TIPOS_CAMPO.map(([v,l])=>`<option value="${v}" ${c.tipo===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="fld"><label>Preenchimento</label><select id="ec_o" ${c.fixo?'disabled':''}><option value="0">Opcional</option><option value="1" ${c.obrig?'selected':''}>Obrigatório</option></select></div>
+    <div class="fld full" id="ec_oW" style="display:${c.tipo==='lista'?'':'none'}"><label>Opções da lista (uma por linha)</label><textarea id="ec_l" rows="8">${esc((c.opcoes||[]).join('\n'))}</textarea><span class="help">"Outro (descrever)" entra sozinho no fim da lista.</span></div>
+    ${c.fixo?`<p class="help full">${c.id==='agendamento'?'Grava na Data de agendamento (gráficos de pagamento agendado).':'Grava a data de vencimento do A VENCER.'}</p>`:''}</div></div>
+  <div class="mf"><button class="btn sec" onclick="edCampoFechar(${ci},${!!novo})">Cancelar</button><button class="btn" onclick="edCampoOk(${ci})">OK</button></div></div>`);
+}
+function edCampoFechar(ci,novo){ if(novo&&!ED.campos[ci].rotulo) ED.campos.splice(ci,1); closeModal(); edRender(); }
+function edCampoOk(ci){ const c=ED.campos[ci], r=$('ec_r').value.trim(); if(!r) return toast('Dê um nome à caixinha.',true);
+  c.rotulo=r; if(!c.fixo){ c.tipo=$('ec_t').value; c.obrig=$('ec_o').value==='1'||undefined; }
+  if(c.tipo==='lista'){ c.opcoes=$('ec_l').value.split('\n').map(x=>x.trim()).filter(Boolean); if(!c.opcoes.length) return toast('Coloque pelo menos uma opção.',true); }
+  closeModal(); edRender(); }
+function edValida(){
+  const nomes=ED.planos.flatMap(p=>p.trat.map(t=>t.nome));
+  if(ED.planos.some(p=>!p.nome)||nomes.some(n=>!n)) return 'Há plano ou tratativa sem nome.';
+  const pn=ED.planos.map(p=>p.nome), dpl=pn.find((n,i)=>pn.indexOf(n)!==i); if(dpl) return `O plano "${dpl}" aparece duas vezes.`;
+  for(const p of ED.planos){ const ns=p.trat.map(t=>t.nome), d=ns.find((n,i)=>ns.indexOf(n)!==i); if(d) return `A tratativa "${d}" aparece duas vezes em ${p.nome}.`; }
+  if(nomes.includes('Outro')) return '"Outro" já existe automaticamente; use outro nome.';
+  if(ED.campos.some(c=>!c.rotulo)) return 'Há caixinha sem nome.';
+  return null; }
+async function edSalvar(silencio){
+  const e=edValida(); if(e){ toast(e,true); return false; }
+  const {error}=await sb.from('config_listas').upsert({chave:'cobranca',valor:ED,atualizado_em:new Date().toISOString(),atualizado_por:S.me.email},{onConflict:'chave'});
+  if(error){ toast(error.message,true); return false; }
+  S.cobDraft=JSON.parse(JSON.stringify(ED)); if(!S.cobPub) S.cobCfg=S.cobDraft;
+  if(!silencio){ toast('Rascunho salvo · os executivos ainda não veem as mudanças'); edRender(); } return true; }
+async function edEspelhar(){
+  if(!(await edSalvar(true))) return;
+  const old=S.cobPub?S.cobPub.valor:null, ren=[];
+  if(old){ const antes=new Map(old.planos.flatMap(p=>(p.trat||[]).map(t=>[p.id+'|'+t.id,[t.nome,p.nome]])));
+    ED.planos.forEach(p=>p.trat.forEach(t=>{ const a=antes.get(p.id+'|'+t.id); if(a&&a[0]!==t.nome) ren.push([a[0],t.nome,a[1],p.nome]); })); }
+  const linhasDe=(a,pl)=>S.acao.filter(r=>ACOES_ESTEIRA.includes(r.acao_id)&&r.status_atuacao===a&&(r.plano_acao||pl)===pl);
+  const usos=ren.map(x=>[...x,linhasDe(x[0],x[2]).length]).filter(x=>x[4]);
+  if(!confirm(`Espelhar a lista para os executivos agora?\nNo Atuar da Atuação Saldo eles passam a escolher Plano de ação › Tratativa, e as caixinhas abrem conforme a escolha.${usos.length?`\n\nTratativas renomeadas que já têm atuação (passam a usar o nome novo):\n${usos.map(x=>`• "${x[0]}" → "${x[1]}" (${x[4]})`).join('\n')}`:''}`)) return;
+  const {error}=await sb.from('config_listas').upsert({chave:'cobranca_pub',valor:ED,atualizado_em:new Date().toISOString(),atualizado_por:S.me.email},{onConflict:'chave'});
+  if(error) return toast(error.message,true);
+  for(const [a,n,pl,pln] of ren){ const ms=linhasDe(a,pl).map(r=>r.matricula); for(let i=0;i<ms.length;i+=200){ const r=await sb.from('acao_base').update({status_atuacao:n,plano_acao:pln,atualizado_por:'plataforma'}).in('acao_id',ACOES_ESTEIRA).eq('status_atuacao',a).in('matricula',ms.slice(i,i+200)); if(r.error) toast(r.error.message,true); } }
+  await loadCobCfg(); ED=null; toast('Lista espelhada · já vale para os executivos'); if(ren.length) await reload('acao'); render(); }
+async function edRecolher(){
+  if(!confirm('Voltar a mostrar só o campo aberto "Situação" para os executivos? O rascunho da lista continua guardado aqui.')) return;
+  const {error}=await sb.from('config_listas').delete().eq('chave','cobranca_pub'); if(error) return toast(error.message,true);
+  await loadCobCfg(); toast('Executivos voltaram ao campo aberto'); render(); }
+function edPadrao(){ if(!confirm('Voltar as listas para o padrão inicial? (só vale depois de salvar)')) return; ED=COB_PADRAO(); edRender(); }
+/* pré-visualização: o Atuar como o executivo verá, sem gravar */
+function edPrevia(){
+  const e=edValida(); if(e) return toast(e,true);
+  S.cobPrev=JSON.parse(JSON.stringify(ED));
+  const fake={matricula:0,acao_id:7};
+  modal(`<div class="modal"><div class="mh"><div><h3>Pré-visualização do Atuar</h3><p>Como o executivo verá na Atuação Saldo · nada é gravado</p></div><button class="x" onclick="edPreviaFechar()">×</button></div>
+    <div class="mb"><div class="fgrid">${esteiraForm(7,fake)}<div class="fld full"><label>Situação · contextualize o caso <span style="color:var(--rose)">*</span></label><textarea rows="3" placeholder="Campo aberto"></textarea></div></div></div>
+    <div class="mf"><button class="btn" onclick="edPreviaFechar()">Fechar</button></div></div>`);
+  estInit(7,fake,null); }
+function edPreviaFechar(){ S.cobPrev=null; closeModal(); }
 /* histórico legível */
 function histVal(campo,v){ if(v==null||v==='') return '—'; if(campo!=='atuacao_det') return v;
   try{ const d=JSON.parse(v); return Object.entries(d).map(([k,x])=>{ const c=campoDef(k); const l=k==='prazo_cliente'?'Prazo do cliente':k==='tratativa_outro'?'Tratativa (outro)':(c?.rotulo||k);
